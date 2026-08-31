@@ -37,13 +37,13 @@ func TestTimestampUnmarshal(t *testing.T) {
 		if err := json.Unmarshal([]byte(raw), &ts); err != nil {
 			t.Fatalf("unmarshal %s: %v", raw, err)
 		}
-		if !ts.Time.UTC().Equal(want) {
-			t.Errorf("unmarshal %s = %v, want %v", raw, ts.Time.UTC(), want)
+		if !ts.UTC().Equal(want) {
+			t.Errorf("unmarshal %s = %v, want %v", raw, ts.UTC(), want)
 		}
 	}
 
 	var ts Timestamp
-	if err := json.Unmarshal([]byte("null"), &ts); err != nil || !ts.Time.IsZero() {
+	if err := json.Unmarshal([]byte("null"), &ts); err != nil || !ts.IsZero() {
 		t.Errorf("null should decode to the zero time, got %v (%v)", ts.Time, err)
 	}
 }

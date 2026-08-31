@@ -5,15 +5,17 @@ import (
 	"context"
 	"errors"
 
+	"github.com/karina/kamis-be-go/pkg/database"
 	"github.com/karina/kamis-be-go/services/template/internal/model"
 	"github.com/karina/kamis-be-go/services/template/internal/repository"
-	"gorm.io/gorm"
 )
 
 // ErrNotFound is a transport-agnostic error the handler maps to HTTP 404.
 var ErrNotFound = errors.New("resource not found")
 
-type ResourceService struct{ repo *repository.ResourceRepository }
+type ResourceService struct {
+	repo *repository.ResourceRepository
+}
 
 func NewResourceService(repo *repository.ResourceRepository) *ResourceService {
 	return &ResourceService{repo: repo}
@@ -25,7 +27,7 @@ func (s *ResourceService) List(ctx context.Context) ([]model.Resource, error) {
 
 func (s *ResourceService) Get(ctx context.Context, id uint) (*model.Resource, error) {
 	res, err := s.repo.FindByID(ctx, id)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, database.ErrNotFound) {
 		return nil, ErrNotFound
 	}
 	return res, err

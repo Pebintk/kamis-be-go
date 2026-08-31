@@ -1,16 +1,18 @@
+// Package service holds the profile service's business logic (the Spring
+// @Service / restservice layer). It depends on repositories and pkg/httpx
+// clients, never on gorm or Gin.
 package service
 
 import (
 	"context"
 	"errors"
-	"strings"
 
 	"github.com/karina/kamis-be-go/pkg/auth"
+	"github.com/karina/kamis-be-go/pkg/database"
 	"github.com/karina/kamis-be-go/services/profile/internal/dto"
 	"github.com/karina/kamis-be-go/services/profile/internal/model"
 	"github.com/karina/kamis-be-go/services/profile/internal/repository"
 	"golang.org/x/crypto/bcrypt"
-	"gorm.io/gorm"
 )
 
 var (
@@ -38,7 +40,7 @@ func toResponse(u *model.EndUser) dto.EndUserResponse {
 // auth.ErrInvalidCredentials for a bad password (→401), matching the Java codes.
 func (s *UserService) Login(ctx context.Context, req dto.LoginRequest) (dto.LoginResponse, error) {
 	user, err := s.repo.FindByEmail(ctx, req.Email)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, database.ErrNotFound) {
 		return dto.LoginResponse{}, ErrUserNotFound
 	}
 	if err != nil {
@@ -104,7 +106,7 @@ func (s *UserService) GetAllUsersPaginated(ctx context.Context, page, size int, 
 // is treated as the email, matching the legacy service).
 func (s *UserService) UpdateUser(ctx context.Context, email string, req dto.UpdateUserRequest) (dto.EndUserResponse, error) {
 	user, err := s.repo.FindByEmail(ctx, email)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, database.ErrNotFound) {
 		return dto.EndUserResponse{}, ErrUserNotFound
 	}
 	if err != nil {
@@ -149,7 +151,7 @@ func (s *UserService) EnsureAdmin(ctx context.Context, email, username, password
 }
 
 func mapDuplicate(err error) error {
-	if err != nil && (strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "23505")) {
+	if errors.Is(err, database.ErrDuplicate) {
 		return ErrUserExists
 	}
 	return err

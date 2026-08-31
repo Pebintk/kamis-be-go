@@ -35,6 +35,13 @@ The layered structure under `internal/` mirrors the Java package layout
 (`restcontroller` / `restservice` / `repository` / `model`) so ports are
 near-mechanical.
 
+## Checks
+
+```bash
+make verify   # fmt-check + vet + lint + test — what CI runs
+make fmt      # rewrite formatting in place
+```
+
 ## Run a service locally
 
 ```bash
@@ -61,3 +68,6 @@ curl localhost:8085/health
   move to `goose`/`golang-migrate` for production-grade schema control.
 - Build images from the repo root: `docker build -f services/<name>/Dockerfile
   --build-arg SERVICE=<name> .`
+- Services serve through `httpx.Serve`, which applies HTTP timeouts and drains
+  in-flight requests on SIGTERM. Logs are structured JSON (`log/slog`); set
+  `LOG_LEVEL=debug` to widen.

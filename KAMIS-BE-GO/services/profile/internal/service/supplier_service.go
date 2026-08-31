@@ -9,11 +9,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/karina/kamis-be-go/pkg/database"
 	"github.com/karina/kamis-be-go/pkg/httpx"
 	"github.com/karina/kamis-be-go/services/profile/internal/dto"
 	"github.com/karina/kamis-be-go/services/profile/internal/model"
 	"github.com/karina/kamis-be-go/services/profile/internal/repository"
-	"gorm.io/gorm"
 )
 
 // ErrSupplierNotFound is returned for an unknown supplier id.
@@ -47,8 +47,8 @@ func toSupplierResponse(s *model.Supplier) dto.SupplierResponse {
 		ResourceIDs:     orEmpty(s.ResourceIDs),
 		AssetIDs:        orEmpty(s.AssetIDs),
 		PurchaseIDs:     orEmpty(s.PurchaseIDs),
-		CreatedDate:     dto.UTCTime(s.CreatedDate),
-		UpdatedDate:     dto.UTCTime(s.UpdatedDate),
+		CreatedDate:     dto.UTCTime(s.CreatedAt),
+		UpdatedDate:     dto.UTCTime(s.UpdatedAt),
 	}
 }
 
@@ -194,7 +194,7 @@ func (s *SupplierService) UpdateSupplier(ctx context.Context, req dto.UpdateSupp
 	}
 
 	supplier, err := s.repo.FindByID(ctx, req.ID)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, database.ErrNotFound) {
 		return dto.SupplierResponse{}, ErrSupplierNotFound
 	}
 	if err != nil {
@@ -249,7 +249,7 @@ func (s *SupplierService) UpdateSupplier(ctx context.Context, req dto.UpdateSupp
 // AddPurchaseID links a purchase to a supplier; called by the purchase service.
 func (s *SupplierService) AddPurchaseID(ctx context.Context, supplierID, purchaseID string) error {
 	if _, err := s.repo.FindByID(ctx, supplierID); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, database.ErrNotFound) {
 			return ErrSupplierNotFound
 		}
 		return err
@@ -300,7 +300,7 @@ func (s *SupplierService) GetAllSupplierPaginated(ctx context.Context, nameSuppl
 // on that, so it is kept as-is.
 func (s *SupplierService) GetSupplierName(ctx context.Context, supplierID string) (string, error) {
 	supplier, err := s.repo.FindByID(ctx, supplierID)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, database.ErrNotFound) {
 		return "", ErrSupplierNotFound
 	}
 	if err != nil {
@@ -317,7 +317,7 @@ func (s *SupplierService) GetSupplierDetail(ctx context.Context, supplierID stri
 	}
 
 	supplier, err := s.repo.FindByID(ctx, supplierID)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, database.ErrNotFound) {
 		return dto.DetailSupplier{}, ErrSupplierNotFound
 	}
 	if err != nil {

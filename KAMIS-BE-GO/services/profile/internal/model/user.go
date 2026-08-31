@@ -11,19 +11,16 @@ import (
 // The legacy Java service modeled roles with JPA JOINED inheritance — an
 // EndUser table plus empty Admin/Operasional/Finance/Direksi child tables keyed
 // by a `user_type` discriminator. That accidental complexity collapses here to a
-// single table with a `user_type` column. The legacy UPPERCASE discriminator
-// values are preserved so existing data flattens over directly (see ROLES).
+// single table with a `user_type` column (see ROLES for the casing map).
 type EndUser struct {
 	ID        string    `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
 	Username  string    `gorm:"uniqueIndex;not null" json:"username"`
 	Email     string    `gorm:"uniqueIndex;not null" json:"email"`
 	Password  string    `gorm:"not null" json:"-"`
-	UserType  string    `gorm:"column:user_type;not null" json:"userType"` // UPPERCASE discriminator
+	UserType  string    `gorm:"not null" json:"userType"` // UPPERCASE discriminator
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
-
-func (EndUser) TableName() string { return "end_user" }
 
 // Authority returns the PascalCase role used as the JWT "role" claim and by the
 // route guards — matching the legacy getClass().getSimpleName() behaviour.

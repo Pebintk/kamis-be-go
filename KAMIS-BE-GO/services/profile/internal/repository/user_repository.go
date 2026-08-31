@@ -1,8 +1,12 @@
+// Package repository is the profile service's data-access layer (the Spring
+// Data JPA repositories). Driver and ORM errors are translated to the
+// pkg/database domain errors here, so the service layer never imports gorm.
 package repository
 
 import (
 	"context"
 
+	"github.com/karina/kamis-be-go/pkg/database"
 	"github.com/karina/kamis-be-go/services/profile/internal/model"
 	"gorm.io/gorm"
 )
@@ -16,7 +20,7 @@ func NewUserRepository(db *gorm.DB) *UserRepository {
 func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*model.EndUser, error) {
 	var u model.EndUser
 	if err := r.db.WithContext(ctx).Where("email = ?", email).First(&u).Error; err != nil {
-		return nil, err
+		return nil, database.Translate(err)
 	}
 	return &u, nil
 }
@@ -24,7 +28,7 @@ func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*model.
 func (r *UserRepository) FindByUsername(ctx context.Context, username string) (*model.EndUser, error) {
 	var u model.EndUser
 	if err := r.db.WithContext(ctx).Where("username = ?", username).First(&u).Error; err != nil {
-		return nil, err
+		return nil, database.Translate(err)
 	}
 	return &u, nil
 }
@@ -36,11 +40,11 @@ func (r *UserRepository) ExistsByEmail(ctx context.Context, email string) (bool,
 }
 
 func (r *UserRepository) Create(ctx context.Context, u *model.EndUser) error {
-	return r.db.WithContext(ctx).Create(u).Error
+	return database.Translate(r.db.WithContext(ctx).Create(u).Error)
 }
 
 func (r *UserRepository) Save(ctx context.Context, u *model.EndUser) error {
-	return r.db.WithContext(ctx).Save(u).Error
+	return database.Translate(r.db.WithContext(ctx).Save(u).Error)
 }
 
 func (r *UserRepository) FindAll(ctx context.Context) ([]model.EndUser, error) {

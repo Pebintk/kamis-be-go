@@ -26,7 +26,7 @@ func New(v *auth.Verifier, allowedOrigins []string, h Handlers) *gin.Engine {
 	// ForwardToken runs on every route, public ones included: the legacy
 	// services read the Authorization header straight off the request and
 	// forward it downstream regardless of whether the route required it.
-	r.Use(gin.Logger(), gin.Recovery(), httpx.CORS(allowedOrigins), auth.ForwardToken())
+	r.Use(httpx.RequestLogger(), gin.Recovery(), httpx.CORS(allowedOrigins), auth.ForwardToken())
 
 	r.GET("/health", handler.Health)
 
@@ -35,18 +35,6 @@ func New(v *auth.Verifier, allowedOrigins []string, h Handlers) *gin.Engine {
 	// ---- permitAll ----
 	api.POST("/auth/login", h.Auth.Login)
 	api.POST("/profile/add", h.Profile.Add)
-
-	// WARNING — these three are unauthenticated in the legacy WebSecurityConfig
-	// too, and that is not an oversight in this port. Its rule list covers
-	// /api/client/all and /api/client/add but has no /api/client/** catch-all,
-	// so everything else under /api/client falls through to
-	// `.anyRequest().permitAll()`. The frontend depends on it: its
-	// getClientDetail and updateClient calls send no Authorization header at
-	// all, so requiring a token here would break the client detail and edit
-	// pages. Tighten this and the frontend together, not separately.
-	api.GET("/client/all/paginated", h.Client.Paginated)
-	api.GET("/client/:id", h.Client.Detail)
-	api.PUT("/client/update/:id", h.Client.Update)
 
 	// ---- authenticated ----
 	secured := api.Group("")
@@ -57,9 +45,17 @@ func New(v *auth.Verifier, allowedOrigins []string, h Handlers) *gin.Engine {
 		secured.GET("/profile/all/paginated", auth.GinRequireRole(allRoles...), h.Profile.Paginated)
 		secured.PUT("/profile/:id", auth.GinRequireRole(allRoles...), h.Profile.Update)
 
-		// /api/client/**
-		secured.GET("/client/all", auth.GinRequireRole("Operasional", "Direksi", "Admin", "Finance"), h.Client.All)
+		// /api/client/** — the legacy WebSecurityConfig had no catch-all here,
+		// so everything except /all and /add fell through to permitAll. That
+		// left GET /client/{id} and PUT /client/update/{id} world-accessible.
+		// Nothing depends on that any more, so all of them are guarded, with
+		// writes restricted the way the supplier writes are.
+		client := auth.GinRequireRole(allRoles...)
+		secured.GET("/client/all", client, h.Client.All)
+		secured.GET("/client/all/paginated", client, h.Client.Paginated)
+		secured.GET("/client/:id", client, h.Client.Detail)
 		secured.POST("/client/add", auth.GinRequireRole("Operasional"), h.Client.Add)
+		secured.PUT("/client/update/:id", auth.GinRequireRole("Operasional", "Admin"), h.Client.Update)
 
 		// /api/supplier/** — the specific rules come first, exactly as the
 		// ordered matcher list in WebSecurityConfig does.

@@ -7,11 +7,11 @@ import (
 	"net/url"
 	"sync"
 
+	"github.com/karina/kamis-be-go/pkg/database"
 	"github.com/karina/kamis-be-go/pkg/httpx"
 	"github.com/karina/kamis-be-go/services/profile/internal/dto"
 	"github.com/karina/kamis-be-go/services/profile/internal/model"
 	"github.com/karina/kamis-be-go/services/profile/internal/repository"
-	"gorm.io/gorm"
 )
 
 // ErrClientNotFound is returned for an unknown client id (→404).
@@ -58,10 +58,12 @@ func (s *ClientService) fetchProjectsFor(ctx context.Context, clients []model.Cl
 	sem := make(chan struct{}, projectFetchConcurrency)
 
 	for _, c := range clients {
+		// Acquire before spawning so the semaphore bounds live goroutines, not
+		// just the work they do.
+		sem <- struct{}{}
 		wg.Add(1)
 		go func(id string) {
 			defer wg.Done()
-			sem <- struct{}{}
 			defer func() { <-sem }()
 
 			projects := s.fetchProjects(ctx, id)
@@ -87,8 +89,8 @@ func toClientResponse(c *model.Client, projects []dto.ProjectResponse) dto.Clien
 		CompanyClient: c.CompanyClient,
 		AddressClient: c.AddressClient,
 		Projects:      projects,
-		CreatedDate:   dto.JakartaTime(c.CreatedDate),
-		UpdatedDate:   dto.JakartaTime(c.UpdatedDate),
+		CreatedDate:   dto.JakartaTime(c.CreatedAt),
+		UpdatedDate:   dto.JakartaTime(c.UpdatedAt),
 	}
 }
 
@@ -127,7 +129,7 @@ func (s *ClientService) AddClient(ctx context.Context, req dto.AddClientRequest)
 
 func (s *ClientService) GetClientByID(ctx context.Context, id string) (dto.ClientResponse, error) {
 	client, err := s.repo.FindByID(ctx, id)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, database.ErrNotFound) {
 		return dto.ClientResponse{}, ErrClientNotFound
 	}
 	if err != nil {
@@ -140,7 +142,7 @@ func (s *ClientService) GetClientByID(ctx context.Context, id string) (dto.Clien
 // updatable, matching the legacy service.
 func (s *ClientService) UpdateClient(ctx context.Context, id string, req dto.UpdateClientRequest) (dto.ClientResponse, error) {
 	client, err := s.repo.FindByID(ctx, id)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, database.ErrNotFound) {
 		return dto.ClientResponse{}, ErrClientNotFound
 	}
 	if err != nil {

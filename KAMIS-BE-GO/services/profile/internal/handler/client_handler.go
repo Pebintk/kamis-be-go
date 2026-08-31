@@ -100,8 +100,10 @@ func (h *ClientHandler) Update(c *gin.Context) {
 	httpx.Respond(c, http.StatusOK, "Client berhasil diperbarui", client)
 }
 
-// queryBool returns nil when the parameter is absent or unparseable, which is
-// how a Spring `Boolean` request param behaves.
+// queryBool returns nil when the parameter is absent, matching an omitted
+// Spring `Boolean` request param. It also returns nil for an unparseable value,
+// where Spring would answer 400 — a deliberate simplification, since the
+// frontend only ever sends real booleans here.
 func queryBool(c *gin.Context, name string) *bool {
 	raw, ok := c.GetQuery(name)
 	if !ok || raw == "" {

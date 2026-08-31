@@ -4,6 +4,7 @@ package repository
 import (
 	"context"
 
+	"github.com/karina/kamis-be-go/pkg/database"
 	"github.com/karina/kamis-be-go/services/template/internal/model"
 	"gorm.io/gorm"
 )
@@ -23,11 +24,11 @@ func (r *ResourceRepository) FindAll(ctx context.Context) ([]model.Resource, err
 func (r *ResourceRepository) FindByID(ctx context.Context, id uint) (*model.Resource, error) {
 	var res model.Resource
 	if err := r.db.WithContext(ctx).First(&res, id).Error; err != nil {
-		return nil, err
+		return nil, database.Translate(err)
 	}
 	return &res, nil
 }
 
 func (r *ResourceRepository) Create(ctx context.Context, res *model.Resource) error {
-	return r.db.WithContext(ctx).Create(res).Error
+	return database.Translate(r.db.WithContext(ctx).Create(res).Error)
 }

@@ -5,7 +5,8 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
+	"os"
 
 	"github.com/karina/kamis-be-go/pkg/auth"
 	"github.com/karina/kamis-be-go/pkg/database"
@@ -19,14 +20,16 @@ import (
 )
 
 func main() {
+	httpx.SetupLogging("profile")
+
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("config: %v", err)
+		fail("config", err)
 	}
 
 	db, err := database.Connect(cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalf("database: %v", err)
+		fail("database", err)
 	}
 	if err := db.AutoMigrate(
 		&model.EndUser{},
@@ -36,16 +39,16 @@ func main() {
 		&model.SupplierResource{},
 		&model.SupplierPurchase{},
 	); err != nil {
-		log.Fatalf("migrate: %v", err)
+		fail("migrate", err)
 	}
 
 	verifier, err := auth.NewVerifier(cfg.JWTPublicKey)
 	if err != nil {
-		log.Fatalf("auth verifier: %v", err)
+		fail("auth verifier", err)
 	}
 	issuer, err := auth.NewIssuer(cfg.JWTPrivateKey, cfg.JWTExpiration)
 	if err != nil {
-		log.Fatalf("auth issuer: %v", err)
+		fail("auth issuer", err)
 	}
 
 	userRepo := repository.NewUserRepository(db)
@@ -64,7 +67,7 @@ func main() {
 
 	// Seed the default admin (legacy AdminInitializer). Non-fatal on failure.
 	if err := svc.EnsureAdmin(context.Background(), cfg.AdminEmail, cfg.AdminUsername, cfg.AdminPassword); err != nil {
-		log.Printf("warning: could not ensure admin account: %v", err)
+		slog.Warn("could not ensure admin account", "error", err)
 	}
 
 	r := router.New(verifier, cfg.AllowedOrigins(), router.Handlers{
@@ -74,8 +77,14 @@ func main() {
 		Supplier: handler.NewSupplierHandler(supplierSvc),
 	})
 
-	log.Printf("profile service listening on :%s", cfg.Port)
-	if err := r.Run(":" + cfg.Port); err != nil {
-		log.Fatalf("server: %v", err)
+	if err := httpx.Serve(r, cfg.Port); err != nil {
+		fail("server", err)
 	}
+}
+
+// fail logs a fatal startup error and exits. slog has no Fatal, so this keeps
+// the exit path in one place.
+func fail(what string, err error) {
+	slog.Error("startup failed", "at", what, "error", err)
+	os.Exit(1)
 }

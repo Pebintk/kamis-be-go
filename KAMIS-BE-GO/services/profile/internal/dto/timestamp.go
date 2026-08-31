@@ -31,7 +31,7 @@ func JakartaTime(t time.Time) Timestamp { return Timestamp{Time: t, loc: jakarta
 func UTCTime(t time.Time) Timestamp { return Timestamp{Time: t, loc: time.UTC} }
 
 func (t Timestamp) MarshalJSON() ([]byte, error) {
-	if t.Time.IsZero() {
+	if t.IsZero() {
 		return []byte("null"), nil
 	}
 	loc := t.loc

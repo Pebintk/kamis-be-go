@@ -72,9 +72,11 @@ func TestRoutesRegister(t *testing.T) {
 	}
 }
 
-// TestTokenRequirement pins which routes the legacy WebSecurityConfig leaves
-// open. The three public /api/client routes are load-bearing: the frontend
-// calls them without an Authorization header.
+// TestTokenRequirement pins which routes are reachable without a token. Only
+// login and profile registration are; everything else must answer 401. The
+// three /api/client routes below were world-accessible in the legacy
+// WebSecurityConfig (no /api/client/** catch-all) and are explicitly guarded
+// here, so this test is what keeps them from regressing.
 func TestTokenRequirement(t *testing.T) {
 	engine := newTestEngine(t)
 
@@ -82,9 +84,11 @@ func TestTokenRequirement(t *testing.T) {
 		method, path string
 		public       bool
 	}{
-		{http.MethodGet, "/api/client/all/paginated", true},
-		{http.MethodGet, "/api/client/abc-123", true},
-		{http.MethodPut, "/api/client/update/abc-123", true},
+		{http.MethodPost, "/api/auth/login", true},
+		{http.MethodPost, "/api/profile/add", true},
+		{http.MethodGet, "/api/client/all/paginated", false},
+		{http.MethodGet, "/api/client/abc-123", false},
+		{http.MethodPut, "/api/client/update/abc-123", false},
 		{http.MethodGet, "/api/client/all", false},
 		{http.MethodPost, "/api/client/add", false},
 		{http.MethodPost, "/api/supplier/add", false},
@@ -107,7 +111,7 @@ func TestTokenRequirement(t *testing.T) {
 
 		unauthorized := res.Code == http.StatusUnauthorized
 		if tc.public && unauthorized {
-			t.Errorf("%s %s: got 401, want public (the frontend sends no token here)", tc.method, tc.path)
+			t.Errorf("%s %s: got 401, want public", tc.method, tc.path)
 		}
 		if !tc.public && !unauthorized {
 			t.Errorf("%s %s: got %d, want 401 without a token", tc.method, tc.path, res.Code)

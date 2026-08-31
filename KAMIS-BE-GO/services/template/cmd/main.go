@@ -4,11 +4,13 @@
 package main
 
 import (
-	"log"
+	"log/slog"
+	"os"
 
 	"github.com/karina/kamis-be-go/pkg/auth"
 	"github.com/karina/kamis-be-go/pkg/config"
 	"github.com/karina/kamis-be-go/pkg/database"
+	"github.com/karina/kamis-be-go/pkg/httpx"
 	"github.com/karina/kamis-be-go/services/template/internal/handler"
 	"github.com/karina/kamis-be-go/services/template/internal/model"
 	"github.com/karina/kamis-be-go/services/template/internal/repository"
@@ -17,27 +19,29 @@ import (
 )
 
 func main() {
+	httpx.SetupLogging("template")
+
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("config: %v", err)
+		fail("config", err)
 	}
 
 	db, err := database.Connect(cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalf("database: %v", err)
+		fail("database", err)
 	}
 
 	// AutoMigrate parallels the legacy Hibernate `ddl-auto: update`. Swap for
 	// goose/golang-migrate once you want explicit, reviewed schema changes.
 	if err := db.AutoMigrate(&model.Resource{}); err != nil {
-		log.Fatalf("migrate: %v", err)
+		fail("migrate", err)
 	}
 
 	// This service only verifies tokens. The issuer (auth.NewIssuer) is wired
 	// only in the profile service's main.go.
 	verifier, err := auth.NewVerifier(cfg.JWTPublicKey)
 	if err != nil {
-		log.Fatalf("auth verifier: %v", err)
+		fail("auth verifier", err)
 	}
 
 	// Compose the layers: repository -> service -> handler.
@@ -47,8 +51,14 @@ func main() {
 
 	r := router.New(verifier, resourceHandler)
 
-	log.Printf("template service listening on :%s", cfg.Port)
-	if err := r.Run(":" + cfg.Port); err != nil {
-		log.Fatalf("server: %v", err)
+	if err := httpx.Serve(r, cfg.Port); err != nil {
+		fail("server", err)
 	}
+}
+
+// fail logs a fatal startup error and exits. slog has no Fatal, so this keeps
+// the exit path in one place.
+func fail(what string, err error) {
+	slog.Error("startup failed", "at", what, "error", err)
+	os.Exit(1)
 }

@@ -2,23 +2,23 @@ package model
 
 import "time"
 
-// Supplier mirrors the legacy Supplier entity. See the note on Client about the
-// quoted, space-containing column names.
+// Supplier is a vendor PT Karina buys assets and resources from. See the note on
+// Client about naming.
 //
 // The three ID lists are JPA @ElementCollection tables in the Java model, each a
 // plain (supplier_id, <x>_id) pair with no primary key. GORM has no direct
 // equivalent, so they are modelled as the three structs below and loaded/saved
-// explicitly by SupplierRepository — the join tables keep their legacy names and
-// columns, so the same rows are read either way.
+// explicitly by SupplierRepository.
 type Supplier struct {
-	ID              string    `gorm:"column:id;type:uuid;default:gen_random_uuid();primaryKey"`
-	NameSupplier    string    `gorm:"column:Nama;not null;uniqueIndex"`
-	NoTelpSupplier  string    `gorm:"column:Nomor Telepon;not null;uniqueIndex"`
-	EmailSupplier   string    `gorm:"column:Email;not null;uniqueIndex"`
-	CompanySupplier string    `gorm:"column:Perusahaan"`
-	AddressSupplier string    `gorm:"column:Alamat;not null"`
-	CreatedDate     time.Time `gorm:"column:Created Date;autoCreateTime;not null"`
-	UpdatedDate     time.Time `gorm:"column:Updated Date;autoUpdateTime;not null"`
+	ID              string `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
+	NameSupplier    string `gorm:"uniqueIndex;not null"`
+	NoTelpSupplier  string `gorm:"uniqueIndex;not null"`
+	EmailSupplier   string `gorm:"uniqueIndex;not null"`
+	CompanySupplier string
+	AddressSupplier string `gorm:"not null"`
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
 
 	// Populated by the repository from the collection tables; not columns.
 	AssetIDs    []string `gorm:"-"`
@@ -26,28 +26,20 @@ type Supplier struct {
 	PurchaseIDs []string `gorm:"-"`
 }
 
-func (Supplier) TableName() string { return "Supplier" }
-
-// SupplierAsset is one row of the supplier_assets @ElementCollection table.
+// SupplierAsset is one row of the supplier_assets collection table.
 type SupplierAsset struct {
-	SupplierID string `gorm:"column:supplier_id;type:uuid;index"`
-	AssetID    string `gorm:"column:asset_id"`
+	SupplierID string `gorm:"type:uuid;index"`
+	AssetID    string
 }
 
-func (SupplierAsset) TableName() string { return "supplier_assets" }
-
-// SupplierResource is one row of the supplier_resources @ElementCollection table.
+// SupplierResource is one row of the supplier_resources collection table.
 type SupplierResource struct {
-	SupplierID string `gorm:"column:supplier_id;type:uuid;index"`
-	ResourceID int64  `gorm:"column:resource_id"`
+	SupplierID string `gorm:"type:uuid;index"`
+	ResourceID int64
 }
 
-func (SupplierResource) TableName() string { return "supplier_resources" }
-
-// SupplierPurchase is one row of the supplier_purchases @ElementCollection table.
+// SupplierPurchase is one row of the supplier_purchases collection table.
 type SupplierPurchase struct {
-	SupplierID string `gorm:"column:supplier_id;type:uuid;index"`
-	PurchaseID string `gorm:"column:purchase_id"`
+	SupplierID string `gorm:"type:uuid;index"`
+	PurchaseID string
 }
-
-func (SupplierPurchase) TableName() string { return "supplier_purchases" }
