@@ -1,0 +1,28 @@
+# CI for KAMIS-BE-GO. Verify-only for now: the Go services are not yet part of
+# the deploy pipeline, which still builds the Java services in ../KAMIS-BE.
+default:
+  tags:
+    - apap
+
+stages:
+  - verify
+
+variables:
+  IMAGE_GOLANG: golang:1.25-alpine
+
+verify:
+  stage: verify
+  image: $IMAGE_GOLANG
+  before_script:
+    - apk add --no-cache make git
+  script:
+    - make verify
+  cache:
+    key: go-mod-$CI_COMMIT_REF_SLUG
+    paths:
+      - .cache/go-build
+      - .cache/go-mod
+      - bin/tools
+  variables:
+    GOCACHE: $CI_PROJECT_DIR/.cache/go-build
+    GOMODCACHE: $CI_PROJECT_DIR/.cache/go-mod

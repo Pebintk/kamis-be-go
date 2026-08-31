@@ -1,0 +1,24 @@
+# Lint configuration for KAMIS-BE-GO. Run with `make lint`.
+version: "2"
+
+linters:
+  default: standard # errcheck, govet, ineffassign, staticcheck, unused
+  settings:
+    staticcheck:
+      # ST1005 wants error strings lowercase and unpunctuated. The supplier
+      # flows deliberately break that: their messages are Indonesian sentences
+      # that the frontend renders verbatim to the user, so they are part of the
+      # API contract inherited from the Java service, not internal diagnostics.
+      checks:
+        - all
+        - -ST1005
+  exclusions:
+    rules:
+      # Tests may ignore errors from helpers where a failure is obvious.
+      - path: _test\.go
+        linters:
+          - errcheck
+
+formatters:
+  enable:
+    - gofmt
