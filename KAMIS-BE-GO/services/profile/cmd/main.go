@@ -1,0 +1,81 @@
+// Command profile is the auth/account service: it both issues tokens (login)
+// and verifies them (to guard /api/profile/**). It is the only service wired
+// with an auth.Issuer.
+package main
+
+import (
+	"context"
+	"log"
+
+	"github.com/karina/kamis-be-go/pkg/auth"
+	"github.com/karina/kamis-be-go/pkg/database"
+	"github.com/karina/kamis-be-go/pkg/httpx"
+	"github.com/karina/kamis-be-go/services/profile/internal/config"
+	"github.com/karina/kamis-be-go/services/profile/internal/handler"
+	"github.com/karina/kamis-be-go/services/profile/internal/model"
+	"github.com/karina/kamis-be-go/services/profile/internal/repository"
+	"github.com/karina/kamis-be-go/services/profile/internal/router"
+	"github.com/karina/kamis-be-go/services/profile/internal/service"
+)
+
+func main() {
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("config: %v", err)
+	}
+
+	db, err := database.Connect(cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("database: %v", err)
+	}
+	if err := db.AutoMigrate(
+		&model.EndUser{},
+		&model.Client{},
+		&model.Supplier{},
+		&model.SupplierAsset{},
+		&model.SupplierResource{},
+		&model.SupplierPurchase{},
+	); err != nil {
+		log.Fatalf("migrate: %v", err)
+	}
+
+	verifier, err := auth.NewVerifier(cfg.JWTPublicKey)
+	if err != nil {
+		log.Fatalf("auth verifier: %v", err)
+	}
+	issuer, err := auth.NewIssuer(cfg.JWTPrivateKey, cfg.JWTExpiration)
+	if err != nil {
+		log.Fatalf("auth issuer: %v", err)
+	}
+
+	userRepo := repository.NewUserRepository(db)
+	svc := service.NewUserService(userRepo, issuer)
+
+	// Clients for the services the client/supplier flows call out to, standing
+	// in for the Java WebClient instances.
+	projectClient := httpx.NewClient(cfg.ProjectURL, httpx.DefaultTimeout)
+	resourceClient := httpx.NewClient(cfg.ResourceURL, httpx.DefaultTimeout)
+	assetClient := httpx.NewClient(cfg.AssetURL, httpx.DefaultTimeout)
+	purchaseClient := httpx.NewClient(cfg.PurchaseURL, httpx.DefaultTimeout)
+
+	clientSvc := service.NewClientService(repository.NewClientRepository(db), projectClient)
+	supplierSvc := service.NewSupplierService(
+		repository.NewSupplierRepository(db), resourceClient, assetClient, purchaseClient)
+
+	// Seed the default admin (legacy AdminInitializer). Non-fatal on failure.
+	if err := svc.EnsureAdmin(context.Background(), cfg.AdminEmail, cfg.AdminUsername, cfg.AdminPassword); err != nil {
+		log.Printf("warning: could not ensure admin account: %v", err)
+	}
+
+	r := router.New(verifier, cfg.AllowedOrigins(), router.Handlers{
+		Auth:     handler.NewAuthHandler(svc),
+		Profile:  handler.NewProfileHandler(svc),
+		Client:   handler.NewClientHandler(clientSvc),
+		Supplier: handler.NewSupplierHandler(supplierSvc),
+	})
+
+	log.Printf("profile service listening on :%s", cfg.Port)
+	if err := r.Run(":" + cfg.Port); err != nil {
+		log.Fatalf("server: %v", err)
+	}
+}

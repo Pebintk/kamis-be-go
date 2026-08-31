@@ -1,0 +1,44 @@
+// Package dto holds the profile service's request/response shapes (the Java
+// restdto package). Field names match the legacy JSON so the frontend is
+// unaffected.
+package dto
+
+// LoginRequest is posted to /api/auth/login. Login is by email (legacy behaviour).
+type LoginRequest struct {
+	Email    string `json:"email" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
+
+// LoginResponse is the `data` of a successful login.
+type LoginResponse struct {
+	Token string `json:"token"`
+}
+
+// AddUserRequest is posted to /api/profile/add. Role is the lowercase API form.
+type AddUserRequest struct {
+	Email    string `json:"email" binding:"required"`
+	Password string `json:"password" binding:"required"`
+	Username string `json:"username" binding:"required"`
+	Role     string `json:"role" binding:"required"`
+}
+
+// UpdateUserRequest is the body of PUT /api/profile/{id}. Pointers distinguish
+// "field omitted" from "set to empty", matching the legacy null checks.
+type UpdateUserRequest struct {
+	Email    *string `json:"email"`
+	Password *string `json:"password"`
+	Username *string `json:"username"`
+}
+
+// EndUserResponse is the account representation returned to clients. Role is the
+// lowercase API form.
+type EndUserResponse struct {
+	Email    string `json:"email"`
+	Username string `json:"username"`
+	Role     string `json:"role"`
+}
+
+// Page is the account listing page. It is an alias so the existing
+// EndUserResponse pagination keeps its name while sharing one implementation
+// with the client and supplier listings.
+type Page = PageOf[EndUserResponse]

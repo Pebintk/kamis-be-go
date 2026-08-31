@@ -1,0 +1,64 @@
+// Package config loads service configuration from the environment, optionally
+// seeded from a local .env file (parallels Spring's `optional:file:.env`).
+package config
+
+import (
+	"fmt"
+	"os"
+	"strconv"
+	"time"
+
+	"github.com/joho/godotenv"
+)
+
+// Base holds the settings every KAMIS service needs. Service-specific configs
+// can embed this struct and add their own fields.
+type Base struct {
+	Port string
+
+	// DatabaseURL is a Go/pgx DSN, e.g.
+	//   postgres://user:pass@host:5432/dbname?sslmode=disable
+	// NOTE: this is NOT the Java JDBC URL (jdbc:postgresql://...). When porting a
+	// service, translate the JDBC URL to this form.
+	DatabaseURL string
+
+	JWTPublicKey  string        // base64 X509 — required by every service (verify)
+	JWTPrivateKey string        // base64 PKCS8 — set only by profile (issue)
+	JWTExpiration time.Duration // from JWT_EXPIRATION_MS
+	FrontendURL   string
+}
+
+// Load reads .env (if present) then the process environment, and validates the
+// settings shared by all services.
+func Load() (Base, error) {
+	_ = godotenv.Load() // .env is optional; ignore "not found"
+
+	expMs, err := strconv.Atoi(getenv("JWT_EXPIRATION_MS", "86400000"))
+	if err != nil {
+		return Base{}, fmt.Errorf("JWT_EXPIRATION_MS must be an integer: %w", err)
+	}
+
+	cfg := Base{
+		Port:          getenv("PORT", "8080"),
+		DatabaseURL:   os.Getenv("DATABASE_URL"),
+		JWTPublicKey:  os.Getenv("JWT_PUBLIC_KEY"),
+		JWTPrivateKey: os.Getenv("JWT_SECRET_KEY"),
+		JWTExpiration: time.Duration(expMs) * time.Millisecond,
+		FrontendURL:   os.Getenv("FRONTEND_URL"),
+	}
+
+	if cfg.JWTPublicKey == "" {
+		return Base{}, fmt.Errorf("JWT_PUBLIC_KEY is required")
+	}
+	if cfg.DatabaseURL == "" {
+		return Base{}, fmt.Errorf("DATABASE_URL is required")
+	}
+	return cfg, nil
+}
+
+func getenv(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
