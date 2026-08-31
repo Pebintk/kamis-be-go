@@ -1,0 +1,5 @@
+# Reference checkouts, each its own git repository — not tracked here.
+#   KAMIS-BE  : the legacy Java source being ported from (read-only reference)
+#   KAMIS-FE  : the Vue frontend, now at github.com/Pebintk/kamis-fe-migrate
+KAMIS-BE/
+KAMIS-FE/
