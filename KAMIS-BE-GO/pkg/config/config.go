@@ -56,6 +56,17 @@ func Load() (Base, error) {
 	return cfg, nil
 }
 
+// AllowedOrigins returns the CORS origins for this service. The Java CorsConfig
+// also listed the sibling services' base URLs, but those are server-to-server
+// callers that never send an Origin header, so only the frontend matters.
+func (b Base) AllowedOrigins() []string {
+	var origins []string
+	if b.FrontendURL != "" {
+		origins = append(origins, b.FrontendURL)
+	}
+	return origins
+}
+
 func getenv(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
 		return v

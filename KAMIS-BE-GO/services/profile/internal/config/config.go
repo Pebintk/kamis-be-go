@@ -45,12 +45,3 @@ func Load() (Config, error) {
 		PurchaseURL:   os.Getenv("PURCHASE_URL"),
 	}, nil
 }
-
-// AllowedOrigins returns the non-empty CORS origins for this service.
-func (c Config) AllowedOrigins() []string {
-	var origins []string
-	if c.FrontendURL != "" {
-		origins = append(origins, c.FrontendURL)
-	}
-	return origins
-}

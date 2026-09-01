@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Build context is the repo root (KAMIS-BE-GO), so the whole module is available.
 # Pick the service to build with --build-arg SERVICE=<name>.
-FROM golang:1.23-alpine AS build
+FROM golang:1.26-alpine AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download

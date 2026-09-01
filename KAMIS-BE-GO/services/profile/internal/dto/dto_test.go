@@ -2,7 +2,6 @@ package dto
 
 import (
 	"encoding/json"
-	"strings"
 	"testing"
 	"time"
 )
@@ -67,23 +66,6 @@ func TestCalculateProfit(t *testing.T) {
 		if missing.Profit != nil {
 			t.Errorf("profit = %v, want nil", *missing.Profit)
 		}
-	}
-}
-
-func TestNewPageMetadata(t *testing.T) {
-	page := NewPage([]int{1, 2, 3}, 0, 3, 7)
-	if page.TotalPages != 3 || !page.First || page.Last || page.NumberOfElements != 3 || page.Empty {
-		t.Errorf("first page metadata wrong: %+v", page)
-	}
-
-	last := NewPage([]int{7}, 2, 3, 7)
-	if !last.Last || last.First {
-		t.Errorf("last page metadata wrong: %+v", last)
-	}
-
-	// Content must marshal as [] rather than null so the frontend can iterate.
-	if got := marshal(t, NewPage([]int{}, 0, 3, 0)); !strings.Contains(got, `"content":[]`) {
-		t.Errorf("empty page content = %s", got)
 	}
 }
 

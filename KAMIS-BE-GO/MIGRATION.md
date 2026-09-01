@@ -30,7 +30,7 @@ before continuing — most of the guidance below would change.
 | Service | Java port | Status |
 |---|---|---|
 | profile | 8080 | **Ported.** Slice 1: auth + account core (login, JWT issuance, add/list/paginate/update accounts, admin seeding). Slice 2: Client CRUD. Slice 3: Supplier CRUD, including the cross-service calls to project/resource/asset/purchase. |
-| resource | 8085 | Not started (`services/template`'s sample domain is modeled on it). |
+| resource | 8085 | **Ported.** The full inventory catalogue: CRUD, the paginated/name-filtered list, the locked stock adjustments, the low-stock report, and the supplier-link endpoints profile calls. All 12 Java endpoints map 1:1. |
 | asset | 8081 | Not started. |
 | finance.report | 8082 | Not started. |
 | project | 8083 | Not started. |
@@ -68,8 +68,8 @@ Port one service at a time, copying `services/template`. When a service is
 ready, point the frontend's `VITE_API_*_URL` for that domain at it — there is no
 proxy layer and no coordination window, because nothing is serving traffic.
 
-Suggested order, easiest first: `resource` or `finance.report` (leaf,
-verify-only), then `asset`, `purchase`, `project`. `profile` is already done.
+Suggested order, easiest first: `finance.report` (leaf, verify-only), then
+`asset`, `purchase`, `project`. `profile` and `resource` are already done.
 
 ## Contract quirks — verified against the Java source + FE stores
 
@@ -123,6 +123,32 @@ this app is ever exposed). Everything else needs a valid token, plus a role:
 address, not a UUID. That one is inherited from Java and the frontend relies on
 it.
 
+The resource service has no public routes at all. Its rules:
+
+| Route | Roles |
+|---|---|
+| `GET /api/resource/viewall`, `/viewall/paginated`, `/find/{id}`, `/find-by-supplier/{id}`, `/find-by-stock/{n}` | all four |
+| `POST /api/resource/add` | Admin, Operasional |
+| `PUT /api/resource/update/{id}`, `/addToDb/{id}/{stock}`, `/{id}/add-stock`, `/{id}/deduct-stock`, `/add-supplier`, `/update-supplier` | Operasional, Admin |
+
+### Per-endpoint status codes are inconsistent, on purpose
+
+The Java `ResourceController` wrapped every method in its own catch blocks and
+they do not agree with each other. The Go handlers reproduce each one rather
+than tidying them up, because the frontend branches on the status:
+
+| Endpoint | A missing resource answers | An unexpected error answers |
+|---|---|---|
+| `GET /find/{id}` | **404** | 404 |
+| `PUT /update/{id}`, `/addToDb/...` | **400** | 400 |
+| `PUT /{id}/add-stock`, `/deduct-stock` | 400 | **500** |
+| `POST /add` | — | **500** |
+| `GET /viewall`, `/find-by-*` | — | 400 |
+| `GET /viewall/paginated` | — | **500** |
+
+`services/resource/internal/handler` is where this lives; each handler carries a
+one-line note where the rule is surprising.
+
 ### Role storage is flattened
 
 Java modelled roles with JPA JOINED inheritance: an `end_user` table plus
@@ -174,6 +200,39 @@ up one-to-one with the DTO fields the frontend expects.
 - `activityName` tolerates a null `purchasePrice` (renders `Rp0`) where the Java
   code would have thrown a NullPointerException.
 
+In the resource service:
+
+- **Stock changes are always under a row lock.** Java locked
+  (`@Lock(PESSIMISTIC_WRITE)`) for `add-stock` and `deduct-stock` but *not* for
+  `addToDb/{id}/{stock}`, the endpoint the purchase service calls, so two
+  concurrent purchases of the same item could each read the same starting stock
+  and one increment would be lost. `ResourceRepository.UpdateStock` takes the
+  lock for all three; the arithmetic is passed in as a function, which is also
+  what makes it testable without a database.
+- **Supplier links are a set.** The Java `@ElementCollection List<UUID>` was
+  maintained by loading the list, checking `contains`, appending, and saving —
+  the same lost-update race. The Go `resource_suppliers` table has a composite
+  primary key and links are attached with `ON CONFLICT DO NOTHING`.
+- `PUT /update/{id}` **rejects a negative stock**. The legacy DTO declares
+  `@Min(0)` on it, but that controller never inspects the `BindingResult`, so
+  the annotation did nothing and a negative stock was written straight through.
+- A **malformed supplier UUID** is rejected with 400 before the query runs. Java
+  did this for `find-by-supplier` (via `UUID.fromString`) but not for the
+  `add-supplier` / `update-supplier` bodies, where a null or bad id reached
+  Hibernate.
+- `GET /viewall` is **ordered by id**. Java's `findAll()` had no `ORDER BY`, so
+  its row order was whatever Postgres returned.
+- The numeric request fields (`resourceStock`, `resourcePrice`, `quantity`) are
+  **pointers** in the Go DTOs. Gin's `required` treats a plain `int`'s zero
+  value as missing, which would reject a free item or an out-of-stock one;
+  on a pointer it only rejects an absent field, which is what `@NotNull` meant.
+  `internal/dto/resource_test.go` pins both halves of that.
+
+**Known-dead frontend call:** `resourceStore.fetchResourceById` (in
+`src/stores/resource.ts`) requests `GET /resource/{id}`, which no Java or Go
+route serves — the real one is `/resource/find/{id}`. Nothing calls the function
+today, so it was left alone; fix the URL before wiring it up.
+
 ## Porting recipe (per service)
 
 1. `cp -r services/template services/<name>`, rename package paths (see
@@ -195,7 +254,7 @@ up one-to-one with the DTO fields the frontend expects.
 
 ## Notes for the next port
 
-Four shared pieces exist now; use them rather than reinventing per service.
+Six shared pieces exist now; use them rather than reinventing per service.
 
 **`httpx.Serve(engine, port)`** replaces gin's `Engine.Run`. It sets read/write/
 idle timeouts (a bare `http.Server` has none, so one slow client can hold a
@@ -220,6 +279,18 @@ callers can treat it as "no data" the way the Java `onStatus(...)` handlers did.
 The token reaches it from `auth.ForwardToken()`, which every service should
 install globally — including on public routes, since the legacy services forward
 whatever token they were handed regardless of whether the route required one.
+
+**`pkg/page`** is the slice of Spring Data's `Page` JSON the frontend consumes
+(`content`, `number`, `size`, `totalElements`, `totalPages`, `first`, `last`,
+`numberOfElements`, `empty`). Build one with `page.New(content, number, size,
+total)`. Services re-export it from their `dto` package as `dto.PageOf` /
+`dto.NewPage`, because several paginated methods take a parameter literally
+named `page`, which would shadow the import.
+
+**`config.Base.AllowedOrigins()`** returns the CORS origins to hand
+`httpx.CORS`. The Java `CorsConfig` in every service also listed the sibling
+services' base URLs, but those are server-to-server callers that never send an
+`Origin` header, so only `FRONTEND_URL` is in the list.
 
 ## Tooling
 

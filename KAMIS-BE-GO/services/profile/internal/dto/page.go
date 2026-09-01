@@ -1,35 +1,13 @@
 package dto
 
-import "math"
+import "github.com/karina/kamis-be-go/pkg/page"
 
-// PageOf mirrors the subset of Spring's Page JSON that the frontend consumes.
-type PageOf[T any] struct {
-	Content          []T   `json:"content"`
-	Number           int   `json:"number"`
-	Size             int   `json:"size"`
-	TotalElements    int64 `json:"totalElements"`
-	TotalPages       int   `json:"totalPages"`
-	First            bool  `json:"first"`
-	Last             bool  `json:"last"`
-	NumberOfElements int   `json:"numberOfElements"`
-	Empty            bool  `json:"empty"`
-}
+// PageOf and NewPage are the shared pkg/page types, re-exported here so the
+// profile call sites read as `dto.PageOf` / `dto.NewPage` — several of them take
+// a parameter literally named `page`, which would shadow the package.
+type PageOf[T any] = page.Of[T]
 
 // NewPage assembles the Spring-shaped page metadata around one page of content.
-func NewPage[T any](content []T, page, size int, total int64) PageOf[T] {
-	totalPages := 0
-	if size > 0 {
-		totalPages = int(math.Ceil(float64(total) / float64(size)))
-	}
-	return PageOf[T]{
-		Content:          content,
-		Number:           page,
-		Size:             size,
-		TotalElements:    total,
-		TotalPages:       totalPages,
-		First:            page == 0,
-		Last:             page >= totalPages-1,
-		NumberOfElements: len(content),
-		Empty:            len(content) == 0,
-	}
+func NewPage[T any](content []T, number, size int, total int64) PageOf[T] {
+	return page.New(content, number, size, total)
 }

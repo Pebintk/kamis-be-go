@@ -16,9 +16,12 @@ casings, token shape, response envelope) that must be preserved.
 pkg/
   auth/       JWT Verifier (all services) + Issuer (profile only) + Gin middleware
   config/     env/.env loading
-  database/   GORM Postgres connection
-  httpx/      shared JSON response helpers
+  database/   GORM Postgres connection + error translation
+  httpx/      response envelope, CORS, logging, HTTP server, service-to-service client
+  page/       the Spring Data Page JSON shape the frontend consumes
 services/
+  profile/    auth, accounts, clients, suppliers  (port 8080)
+  resource/   inventory catalogue                 (port 8085)
   template/   copyable skeleton service (sample "Resource" domain)
     cmd/                       entrypoint (main.go)
     internal/
@@ -46,9 +49,8 @@ make fmt      # rewrite formatting in place
 
 ```bash
 make tidy                              # download deps, generate go.sum (run once)
-cp services/template/.env.example services/template/.env   # then fill JWT_PUBLIC_KEY
-make run                               # runs the template service (SERVICE=template)
-make run SERVICE=resource              # once other services exist
+cp services/resource/.env.example services/resource/.env    # then fill JWT_PUBLIC_KEY
+make run SERVICE=resource              # default is SERVICE=template
 curl localhost:8085/health
 ```
 
