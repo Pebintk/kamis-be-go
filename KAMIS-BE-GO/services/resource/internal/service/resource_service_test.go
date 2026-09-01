@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/karina/kamis-be-go/pkg/database"
 	"github.com/karina/kamis-be-go/services/resource/internal/dto"
 )
 
@@ -163,11 +164,26 @@ func TestAddResourceAcceptsZeroes(t *testing.T) {
 	})
 }
 
-// TestNotFoundPassesOtherErrorsThrough keeps notFound from swallowing a real
-// database failure as a "resource not found" 400.
-func TestNotFoundPassesOtherErrorsThrough(t *testing.T) {
+// TestNotFound covers both halves of the lookup-error mapping: a repository miss
+// becomes a NotFoundError (404), and anything else passes through as-is so a
+// dropped connection is not reported to the browser as a missing row.
+func TestNotFound(t *testing.T) {
+	err := notFound(database.ErrNotFound, 42)
+
+	var missing *NotFoundError
+	if !errors.As(err, &missing) {
+		t.Fatalf("notFound(ErrNotFound) = %v, want a *NotFoundError", err)
+	}
+	const want = "Resource dengan ID 42 tidak ditemukan."
+	if missing.Error() != want {
+		t.Errorf("message = %q, want %q", missing.Error(), want)
+	}
+	if isInvalid(err) {
+		t.Error("a missing resource must not also read as a caller mistake (400)")
+	}
+
 	boom := errors.New("connection refused")
-	if got := notFound(boom, "Resource not found"); !errors.Is(got, boom) {
+	if got := notFound(boom, 42); !errors.Is(got, boom) {
 		t.Errorf("notFound rewrote a non-lookup error to %v", got)
 	}
 }

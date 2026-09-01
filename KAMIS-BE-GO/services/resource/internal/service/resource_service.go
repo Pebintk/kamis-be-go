@@ -4,24 +4,11 @@ package service
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/karina/kamis-be-go/services/resource/internal/dto"
 	"github.com/karina/kamis-be-go/services/resource/internal/model"
 	"github.com/karina/kamis-be-go/services/resource/internal/repository"
 )
-
-// InvalidError is the Go stand-in for the Java IllegalArgumentException: a
-// caller mistake carrying an Indonesian message the frontend renders verbatim.
-// The handlers answer 400 for it and fall back to each endpoint's legacy
-// catch-all status for anything else.
-type InvalidError struct{ Message string }
-
-func (e *InvalidError) Error() string { return e.Message }
-
-func invalidf(format string, a ...any) error {
-	return &InvalidError{Message: fmt.Sprintf(format, a...)}
-}
 
 type ResourceService struct {
 	repo *repository.ResourceRepository
@@ -105,7 +92,7 @@ func (s *ResourceService) ListResourcesPaginated(ctx context.Context, nameFilter
 func (s *ResourceService) GetResource(ctx context.Context, id int64) (*dto.ResourceResponse, error) {
 	resource, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		return nil, notFound(err, "Resource not found")
+		return nil, notFound(err, id)
 	}
 	response := toResponse(*resource)
 	return &response, nil
@@ -126,7 +113,7 @@ func (s *ResourceService) UpdateResource(ctx context.Context, id int64, req dto.
 
 	resource, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		return nil, notFound(err, "Resource not found")
+		return nil, notFound(err, id)
 	}
 
 	resource.ResourceDescription = req.ResourceDescription
@@ -181,14 +168,11 @@ func deduction(quantity int) func(current int) (int, error) {
 	}
 }
 
-// adjustStock applies a stock change under the repository's row lock and maps a
-// missing row onto the legacy message.
+// adjustStock applies a stock change under the repository's row lock.
 func (s *ResourceService) adjustStock(ctx context.Context, id int64, apply func(int) (int, error)) (*dto.ResourceResponse, error) {
-	// "ditermukan" is the Java service's typo, kept because the frontend shows
-	// the message verbatim.
 	resource, err := s.repo.UpdateStock(ctx, id, apply)
 	if err != nil {
-		return nil, notFound(err, "Resource tidak ditermukan")
+		return nil, notFound(err, id)
 	}
 	response := toResponse(*resource)
 	return &response, nil
@@ -274,11 +258,10 @@ func (s *ResourceService) UpdateSupplier(ctx context.Context, supplierID string,
 	return nil
 }
 
-// linkExisting attaches a supplier to a resource, rejecting an unknown id the
-// way the Java service did.
+// linkExisting attaches a supplier to a resource, rejecting an unknown id.
 func (s *ResourceService) linkExisting(ctx context.Context, resourceID int64, supplierID string) error {
 	if _, err := s.repo.FindByID(ctx, resourceID); err != nil {
-		return notFound(err, "Resource dengan ID %d tidak ditemukan.", resourceID)
+		return notFound(err, resourceID)
 	}
 	return s.repo.LinkSupplier(ctx, resourceID, supplierID)
 }

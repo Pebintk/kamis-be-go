@@ -131,23 +131,35 @@ The resource service has no public routes at all. Its rules:
 | `POST /api/resource/add` | Admin, Operasional |
 | `PUT /api/resource/update/{id}`, `/addToDb/{id}/{stock}`, `/{id}/add-stock`, `/{id}/deduct-stock`, `/add-supplier`, `/update-supplier` | Operasional, Admin |
 
-### Per-endpoint status codes are inconsistent, on purpose
+### Error statuses are uniform
 
-The Java `ResourceController` wrapped every method in its own catch blocks and
-they do not agree with each other. The Go handlers reproduce each one rather
-than tidying them up, because the frontend branches on the status:
+Every endpoint in the Go services maps errors the same way:
 
-| Endpoint | A missing resource answers | An unexpected error answers |
+| Status | Meaning | Message |
 |---|---|---|
-| `GET /find/{id}` | **404** | 404 |
-| `PUT /update/{id}`, `/addToDb/...` | **400** | 400 |
-| `PUT /{id}/add-stock`, `/deduct-stock` | 400 | **500** |
-| `POST /add` | — | **500** |
-| `GET /viewall`, `/find-by-*` | — | 400 |
-| `GET /viewall/paginated` | — | **500** |
+| **400** | caller mistake — validation, a malformed id or UUID, unparseable JSON | the specific Indonesian message, shown to the user |
+| **404** | no resource with that id | `Resource dengan ID {id} tidak ditemukan.` |
+| **500** | anything else | a generic `Terjadi kesalahan pada server`; the real error goes to the request log |
 
-`services/resource/internal/handler` is where this lives; each handler carries a
-one-line note where the rule is surprising.
+`statusFor` and `respondError` in each service's `internal/handler` package are
+where this lives, and `resource_handler_test.go` pins it.
+
+This is a **change from Java**, which had no consistent rule at all. The
+`ResourceController` wrapped every method in its own catch blocks and they
+disagreed with each other — a missing resource was 404 on `find/{id}` but 400 on
+`update/{id}`; an unexpected failure was 500 on `viewall/paginated` but 400 on
+`viewall`. The same condition also carried three different messages depending on
+which service method raised it (`Resource not found`, `Resource tidak
+ditermukan` — sic — and `Resource dengan ID x tidak ditemukan.`). In the Go port
+"missing resource" is one error type with one message and one status.
+
+The 500 case does **not** echo the underlying error. Java put
+`e.getMessage()` straight into the response body, so a failed connection would
+have handed the browser the database DSN, credentials included.
+
+Porting another service? Copy this rule rather than the Java controller's catch
+blocks. Two error types in the service package carry it: `InvalidError` (400)
+and `NotFoundError` (404); anything else is a 500.
 
 ### Role storage is flattened
 
@@ -228,10 +240,16 @@ In the resource service:
   on a pointer it only rejects an absent field, which is what `@NotNull` meant.
   `internal/dto/resource_test.go` pins both halves of that.
 
-**Known-dead frontend call:** `resourceStore.fetchResourceById` (in
-`src/stores/resource.ts`) requests `GET /resource/{id}`, which no Java or Go
-route serves — the real one is `/resource/find/{id}`. Nothing calls the function
-today, so it was left alone; fix the URL before wiring it up.
+- **Error statuses are uniform** (400/404/500), where the legacy controller's
+  catch blocks disagreed endpoint by endpoint. See "Error statuses are uniform"
+  above; the frontend was updated to match.
+
+The frontend's `src/stores/resource.ts` changed with this service: it was
+requesting `GET /resource/{id}` (a route neither stack ever served — the real one
+is `/resource/find/{id}`), and every `catch` read `error.response.data.message`,
+which itself throws on a network error or timeout, where `error.response` is
+undefined. Both are fixed, and the store now records the HTTP status alongside
+the message so callers can tell a 404 apart from a 500.
 
 ## Porting recipe (per service)
 

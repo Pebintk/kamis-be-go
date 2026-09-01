@@ -2,17 +2,39 @@ package service
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/karina/kamis-be-go/pkg/database"
 )
 
-// notFound turns a repository miss into an InvalidError carrying the message the
-// legacy service used at that call site, and passes any other error through
-// untouched. Java raised IllegalArgumentException for a missing resource
-// everywhere, with a different message each time.
-func notFound(err error, format string, a ...any) error {
+// InvalidError is a caller mistake — the Java IllegalArgumentException raised
+// for a bad value. Handlers answer 400.
+type InvalidError struct{ Message string }
+
+func (e *InvalidError) Error() string { return e.Message }
+
+func invalidf(format string, a ...any) error {
+	return &InvalidError{Message: fmt.Sprintf(format, a...)}
+}
+
+// NotFoundError reports that no resource has the requested id. Handlers answer
+// 404.
+//
+// Java raised IllegalArgumentException for this too, with a different message at
+// each call site ("Resource not found", "Resource tidak ditermukan", "Resource
+// dengan ID x tidak ditemukan."), and each controller method mapped it to
+// whichever status its own catch blocks happened to use. It is one condition, so
+// it now has one type, one message and one status.
+type NotFoundError struct{ Message string }
+
+func (e *NotFoundError) Error() string { return e.Message }
+
+// notFound turns a repository miss into a NotFoundError and passes any other
+// error through untouched — a dropped connection must not be reported as a
+// missing row.
+func notFound(err error, id int64) error {
 	if errors.Is(err, database.ErrNotFound) {
-		return invalidf(format, a...)
+		return &NotFoundError{Message: fmt.Sprintf("Resource dengan ID %d tidak ditemukan.", id)}
 	}
 	return err
 }

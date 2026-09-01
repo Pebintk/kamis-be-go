@@ -1,14 +1,17 @@
 // Package handler is the transport layer (Spring @RestController).
 //
-// The status codes below are not uniform, and that is deliberate: the legacy
-// ResourceController wrapped each method in its own set of catch blocks, and
-// which exception mapped to which status varied per endpoint. Each handler notes
-// the rule it is reproducing where it is surprising.
+// Every endpoint maps errors the same way — 400 for a caller mistake, 404 for a
+// resource that does not exist, 500 for anything unexpected. The legacy
+// ResourceController wrapped each method in its own catch blocks and they did
+// not agree with each other (a missing resource was 404 on find/{id} but 400 on
+// update/{id}; an unexpected failure was 500 on viewall/paginated but 400 on
+// viewall). See statusFor.
 package handler
 
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -33,7 +36,7 @@ func (h *ResourceHandler) Add(c *gin.Context) {
 	}
 	resource, err := h.svc.AddResource(c.Request.Context(), req)
 	if err != nil {
-		httpx.Respond(c, statusFor(err, http.StatusInternalServerError), err.Error(), nil)
+		respondError(c, err)
 		return
 	}
 	httpx.Respond(c, http.StatusOK, "Success", resource)
@@ -43,7 +46,7 @@ func (h *ResourceHandler) Add(c *gin.Context) {
 func (h *ResourceHandler) All(c *gin.Context) {
 	resources, err := h.svc.ListResources(c.Request.Context())
 	if err != nil {
-		httpx.Respond(c, http.StatusBadRequest, err.Error(), nil)
+		respondError(c, err)
 		return
 	}
 	httpx.Respond(c, http.StatusOK, "OK", resources)
@@ -56,15 +59,13 @@ func (h *ResourceHandler) Paginated(c *gin.Context) {
 
 	result, err := h.svc.ListResourcesPaginated(c.Request.Context(), c.Query("resourceName"), number, size)
 	if err != nil {
-		httpx.Respond(c, http.StatusInternalServerError, err.Error(), nil)
+		respondError(c, err)
 		return
 	}
 	httpx.Respond(c, http.StatusOK, "Success", result)
 }
 
-// Detail handles GET /api/resource/find/{idResource}. This is the one endpoint
-// whose legacy catch block mapped IllegalArgumentException to 404 rather than
-// 400, so every failure past the id parse answers 404.
+// Detail handles GET /api/resource/find/{idResource}.
 func (h *ResourceHandler) Detail(c *gin.Context) {
 	id, ok := pathInt64(c, "idResource")
 	if !ok {
@@ -72,15 +73,13 @@ func (h *ResourceHandler) Detail(c *gin.Context) {
 	}
 	resource, err := h.svc.GetResource(c.Request.Context(), id)
 	if err != nil {
-		httpx.Respond(c, http.StatusNotFound, err.Error(), nil)
+		respondError(c, err)
 		return
 	}
 	httpx.Respond(c, http.StatusOK, "OK", resource)
 }
 
-// Update handles PUT /api/resource/update/{idResource}. The legacy controller
-// answers 404 only for its own DataNotFound exception, which the service never
-// throws — a missing resource comes back as 400.
+// Update handles PUT /api/resource/update/{idResource}.
 func (h *ResourceHandler) Update(c *gin.Context) {
 	id, ok := pathInt64(c, "idResource")
 	if !ok {
@@ -93,7 +92,7 @@ func (h *ResourceHandler) Update(c *gin.Context) {
 	}
 	resource, err := h.svc.UpdateResource(c.Request.Context(), id, req)
 	if err != nil {
-		httpx.Respond(c, http.StatusBadRequest, err.Error(), nil)
+		respondError(c, err)
 		return
 	}
 	httpx.Respond(c, http.StatusOK, "OK", resource)
@@ -127,7 +126,7 @@ func (h *ResourceHandler) changeStock(
 	}
 	resource, err := apply(c.Request.Context(), id, *req.Quantity)
 	if err != nil {
-		httpx.Respond(c, statusFor(err, http.StatusInternalServerError), err.Error(), nil)
+		respondError(c, err)
 		return
 	}
 	httpx.Respond(c, http.StatusOK, message, resource)
@@ -146,7 +145,7 @@ func (h *ResourceHandler) AddToDB(c *gin.Context) {
 	}
 	resource, err := h.svc.AddStockToDB(c.Request.Context(), id, int(stock))
 	if err != nil {
-		httpx.Respond(c, http.StatusBadRequest, err.Error(), nil)
+		respondError(c, err)
 		return
 	}
 	httpx.Respond(c, http.StatusOK, "OK", resource)
@@ -156,7 +155,7 @@ func (h *ResourceHandler) AddToDB(c *gin.Context) {
 func (h *ResourceHandler) BySupplier(c *gin.Context) {
 	resources, err := h.svc.ListBySupplier(c.Request.Context(), c.Param("idSupplier"))
 	if err != nil {
-		httpx.Respond(c, http.StatusBadRequest, err.Error(), nil)
+		respondError(c, err)
 		return
 	}
 	httpx.Respond(c, http.StatusOK, "OK", resources)
@@ -170,7 +169,7 @@ func (h *ResourceHandler) ByStock(c *gin.Context) {
 	}
 	resources, err := h.svc.ListByStockAtMost(c.Request.Context(), int(stock))
 	if err != nil {
-		httpx.Respond(c, http.StatusBadRequest, err.Error(), nil)
+		respondError(c, err)
 		return
 	}
 	httpx.Respond(c, http.StatusOK, "OK", resources)
@@ -199,20 +198,40 @@ func (h *ResourceHandler) linkSupplier(
 		return
 	}
 	if err := apply(c.Request.Context(), req.SupplierID, req.ResourceID); err != nil {
-		httpx.Respond(c, statusFor(err, http.StatusInternalServerError), err.Error(), nil)
+		respondError(c, err)
 		return
 	}
 	httpx.Respond(c, http.StatusOK, message, nil)
 }
 
-// statusFor answers 400 for a caller mistake and otherwise the endpoint's own
-// fallback status.
-func statusFor(err error, fallback int) int {
+// respondError writes the error with the status its type calls for. Anything
+// that is neither a caller mistake nor a missing resource is a fault on our
+// side, so it answers 500 with a generic message rather than leaking the
+// underlying failure (a DSN in a connection error, say) to the browser; the
+// detail goes to the request log instead.
+func respondError(c *gin.Context, err error) {
+	status := statusFor(err)
+	message := err.Error()
+	if status == http.StatusInternalServerError {
+		slog.ErrorContext(c.Request.Context(), "resource request failed",
+			"method", c.Request.Method, "path", c.FullPath(), "error", err)
+		message = "Terjadi kesalahan pada server"
+	}
+	httpx.Respond(c, status, message, nil)
+}
+
+// statusFor maps a service error onto its HTTP status: 400 for a caller
+// mistake, 404 for a resource that does not exist, 500 for anything else.
+func statusFor(err error) int {
 	var invalid *service.InvalidError
 	if errors.As(err, &invalid) {
 		return http.StatusBadRequest
 	}
-	return fallback
+	var missing *service.NotFoundError
+	if errors.As(err, &missing) {
+		return http.StatusNotFound
+	}
+	return http.StatusInternalServerError
 }
 
 // pathInt64 parses a numeric path segment, answering 400 on a bad value the way
