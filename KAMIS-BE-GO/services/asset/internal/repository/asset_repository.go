@@ -134,3 +134,67 @@ func (r *AssetRepository) FindMaintenanceByAsset(ctx context.Context, platNomor 
 		Find(&out).Error
 	return out, err
 }
+
+// ---- maintenance ----
+
+func (r *AssetRepository) FindMaintenanceByID(ctx context.Context, id int64) (*model.Maintenance, error) {
+	var m model.Maintenance
+	if err := r.db.WithContext(ctx).Where("id = ?", id).First(&m).Error; err != nil {
+		return nil, database.Translate(err)
+	}
+	return &m, nil
+}
+
+func (r *AssetRepository) CreateMaintenance(ctx context.Context, m *model.Maintenance) error {
+	return database.Translate(r.db.WithContext(ctx).Create(m).Error)
+}
+
+func (r *AssetRepository) SaveMaintenance(ctx context.Context, m *model.Maintenance) error {
+	return database.Translate(r.db.WithContext(ctx).Save(m).Error)
+}
+
+func (r *AssetRepository) FindAllMaintenance(ctx context.Context) ([]model.Maintenance, error) {
+	var out []model.Maintenance
+	err := r.db.WithContext(ctx).Order("tanggal_mulai_maintenance DESC").Find(&out).Error
+	return out, err
+}
+
+func (r *AssetRepository) FindMaintenanceByStatus(ctx context.Context, status string) ([]model.Maintenance, error) {
+	var out []model.Maintenance
+	err := r.db.WithContext(ctx).Where("status = ?", status).
+		Order("tanggal_mulai_maintenance DESC").Find(&out).Error
+	return out, err
+}
+
+// FindAssetsByPlatNomors loads several assets at once, keyed by plate number.
+// The maintenance DTO carries the asset's name, and the Java mapper reached it
+// through the @ManyToOne association on every row.
+func (r *AssetRepository) FindAssetsByPlatNomors(ctx context.Context, platNomors []string) (map[string]model.Asset, error) {
+	out := make(map[string]model.Asset, len(platNomors))
+	if len(platNomors) == 0 {
+		return out, nil
+	}
+
+	var assets []model.Asset
+	// Unscoped so maintenance history still names its asset after that asset has
+	// been soft-deleted.
+	if err := r.db.WithContext(ctx).Unscoped().
+		Where("plat_nomor IN ?", platNomors).Find(&assets).Error; err != nil {
+		return nil, err
+	}
+	for _, a := range assets {
+		out[a.PlatNomor] = a
+	}
+	return out, nil
+}
+
+// ---- reservations ----
+
+// FindReservationsByAsset returns every reservation held against one vehicle,
+// whatever its status.
+func (r *AssetRepository) FindReservationsByAsset(ctx context.Context, platNomor string) ([]model.AssetReservation, error) {
+	var out []model.AssetReservation
+	err := r.db.WithContext(ctx).Where("plat_nomor = ?", platNomor).
+		Order("start_date").Find(&out).Error
+	return out, err
+}

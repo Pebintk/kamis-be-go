@@ -21,6 +21,15 @@ func notFound(err error, platNomor string) error {
 	return err
 }
 
+// maintenanceNotFound is notFound for maintenance records, which are keyed by a
+// numeric id rather than a plate number.
+func maintenanceNotFound(err error, id int64) error {
+	if errors.Is(err, database.ErrNotFound) {
+		return apierr.NotFoundf("Maintenance dengan ID %d tidak ditemukan", id)
+	}
+	return err
+}
+
 // photoKey derives the blob key for an asset's photo.
 //
 // Java used the plate number as the filename directly, which does not survive

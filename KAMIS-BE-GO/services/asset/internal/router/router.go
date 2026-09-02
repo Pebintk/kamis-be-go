@@ -18,7 +18,7 @@ var allRoles = []string{"Admin", "Direksi", "Finance", "Operasional"}
 // /api/asset/**.
 var writeRoles = []string{"Operasional", "Admin"}
 
-func New(v *auth.Verifier, allowedOrigins []string, assets *handler.AssetHandler) *gin.Engine {
+func New(v *auth.Verifier, allowedOrigins []string, assets *handler.AssetHandler, maintenance *handler.MaintenanceHandler) *gin.Engine {
 	r := gin.New()
 	r.Use(httpx.RequestLogger(), gin.Recovery(), httpx.CORS(allowedOrigins), auth.ForwardToken())
 
@@ -43,6 +43,20 @@ func New(v *auth.Verifier, allowedOrigins []string, assets *handler.AssetHandler
 		secured.PUT("/asset/:platNomor", write, assets.Update)
 		secured.PUT("/asset/:platNomor/supplier", write, assets.SetSupplier)
 		secured.DELETE("/asset/:platNomor", write, assets.Delete)
+
+		// /api/maintenance/** sits outside /api/asset/**, so the legacy config's
+		// method rules never applied to it and every route fell through to
+		// .anyRequest().authenticated() — including the writes. Kept as-is;
+		// see MIGRATION.md on the inconsistency.
+		//
+		// The trailing slash on the create route is load-bearing: the legacy
+		// controller is mapped at "/api/maintenance/" and the frontend posts
+		// there.
+		secured.POST("/maintenance/", read, maintenance.Create)
+		secured.GET("/maintenance/all", read, maintenance.All)
+		secured.GET("/maintenance/maintenance-in-progress", read, maintenance.InProgress)
+		secured.GET("/maintenance/:platNomor", read, maintenance.ByAsset)
+		secured.PATCH("/maintenance/:id/complete", read, maintenance.Complete)
 	}
 
 	return r

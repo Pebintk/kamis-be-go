@@ -33,7 +33,7 @@ func testVerifier(t *testing.T) *auth.Verifier {
 func newTestEngine(t *testing.T) *gin.Engine {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
-	return New(testVerifier(t), nil, nil)
+	return New(testVerifier(t), nil, nil, nil)
 }
 
 // TestRoutesRegister pins the route table and guards against a gin conflict
@@ -77,6 +77,11 @@ func TestTokenRequirement(t *testing.T) {
 		{http.MethodPut, "/api/asset/B1234XYZ"},
 		{http.MethodPut, "/api/asset/B1234XYZ/supplier"},
 		{http.MethodDelete, "/api/asset/B1234XYZ"},
+		{http.MethodPost, "/api/maintenance/"},
+		{http.MethodGet, "/api/maintenance/all"},
+		{http.MethodGet, "/api/maintenance/maintenance-in-progress"},
+		{http.MethodGet, "/api/maintenance/B1234XYZ"},
+		{http.MethodPatch, "/api/maintenance/7/complete"},
 	}
 
 	for _, tc := range cases {
@@ -117,4 +122,19 @@ func TestReservationRoutesWillFit(t *testing.T) {
 	g.PUT("/asset/reservations/:reservationId/status", nop)
 	g.GET("/asset/reservations/asset/:platNomor", nop)
 	g.GET("/asset/reservations/project/:projectId", nop)
+}
+
+// TestMaintenanceTrailingSlash pins the path the frontend actually posts to. The
+// legacy controller is mapped at "/api/maintenance/", and gin treats that as a
+// different route from "/api/maintenance".
+func TestMaintenanceTrailingSlash(t *testing.T) {
+	var found bool
+	for _, route := range newTestEngine(t).Routes() {
+		if route.Method == http.MethodPost && route.Path == "/api/maintenance/" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("POST /api/maintenance/ is not registered with its trailing slash")
+	}
 }

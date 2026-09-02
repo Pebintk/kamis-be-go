@@ -52,3 +52,38 @@ type Maintenance struct {
 	// numbers, so an explicit column keeps the loading behaviour visible.
 	AssetPlatNomor string `gorm:"not null;index"`
 }
+
+// Reservation statuses. The legacy code repeats these literals across queries
+// and conditionals.
+const (
+	ReservationDirencanakan = "Direncanakan"
+	ReservationDilaksanakan = "Dilaksanakan"
+	ReservationSelesai      = "Selesai"
+	ReservationBatal        = "Batal"
+)
+
+// Asset statuses that gate what can be scheduled against a vehicle.
+const (
+	AssetTersedia          = "Tersedia"
+	AssetSedangMaintenance = "Sedang Maintenance"
+	AssetDalamAktivitas    = "Dalam Aktivitas"
+)
+
+// AssetReservation books a vehicle to a project for a date range.
+type AssetReservation struct {
+	ID        string    `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
+	PlatNomor string    `gorm:"not null;index"`
+	ProjectID string    `gorm:"not null;index"`
+	StartDate time.Time `gorm:"not null"`
+	EndDate   time.Time `gorm:"not null"`
+
+	// ReservationStatus is one of the Reservation* constants above. The Java
+	// column is named "status"; GORM derives reservation_status from the field,
+	// which is clearer and, since the schema is ours, free to change.
+	ReservationStatus string `gorm:"not null;index"`
+}
+
+// Active reports whether this reservation still blocks the vehicle.
+func (r AssetReservation) Active() bool {
+	return r.ReservationStatus != ReservationBatal && r.ReservationStatus != ReservationSelesai
+}

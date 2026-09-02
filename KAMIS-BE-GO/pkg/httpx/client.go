@@ -93,6 +93,11 @@ func (c *Client) Put(ctx context.Context, path string, body any) error {
 	return c.do(ctx, http.MethodPut, path, body, nil)
 }
 
+// Post sends a JSON body and ignores the response payload.
+func (c *Client) Post(ctx context.Context, path string, body any) error {
+	return c.do(ctx, http.MethodPost, path, body, nil)
+}
+
 // GetData issues a GET and returns the `data` field of the BaseResponseDTO
 // envelope the KAMIS services wrap every response in.
 //

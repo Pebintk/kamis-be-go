@@ -32,7 +32,7 @@ func main() {
 	if err != nil {
 		fail("database", err)
 	}
-	if err := db.AutoMigrate(&model.Asset{}, &model.Maintenance{}); err != nil {
+	if err := db.AutoMigrate(&model.Asset{}, &model.Maintenance{}, &model.AssetReservation{}); err != nil {
 		fail("migrate", err)
 	}
 
@@ -47,10 +47,20 @@ func main() {
 		fail("photo storage", err)
 	}
 
-	repo := repository.NewAssetRepository(db)
-	handlers := handler.NewAssetHandler(service.NewAssetService(repo, photos))
+	// The ledger is written to when a maintenance job is booked. An unset
+	// FINANCE_URL disables it: the call fails and is logged, which is how the
+	// legacy service treated a finance outage too.
+	finance := httpx.NewClient(os.Getenv("FINANCE_URL"), httpx.DefaultTimeout)
 
-	if err := httpx.Serve(router.New(verifier, cfg.AllowedOrigins(), handlers), cfg.Port); err != nil {
+	repo := repository.NewAssetRepository(db)
+	assetSvc := service.NewAssetService(repo, photos)
+	maintenanceSvc := service.NewMaintenanceService(repo, finance)
+
+	engine := router.New(verifier, cfg.AllowedOrigins(),
+		handler.NewAssetHandler(assetSvc),
+		handler.NewMaintenanceHandler(maintenanceSvc, assetSvc))
+
+	if err := httpx.Serve(engine, cfg.Port); err != nil {
 		fail("server", err)
 	}
 }

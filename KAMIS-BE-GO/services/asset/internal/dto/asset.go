@@ -93,3 +93,25 @@ type MaintenanceResponse struct {
 	PlatNomor                 string     `json:"platNomor"`
 	NamaAset                  string     `json:"namaAset"`
 }
+
+// MaintenanceRequest is the JSON body of POST /api/maintenance/.
+type MaintenanceRequest struct {
+	PlatNomor          string `json:"platNomor" binding:"required"`
+	DeskripsiPekerjaan string `json:"deskripsiPekerjaan" binding:"required"`
+	// Biaya is @Positive in the legacy DTO, enforced in the service so the
+	// message matches the other validation failures.
+	Biaya                     *float64   `json:"biaya" binding:"required"`
+	TanggalMulaiMaintenance   *Timestamp `json:"tanggalMulaiMaintenance" binding:"required"`
+	TanggalSelesaiMaintenance *Timestamp `json:"tanggalSelesaiMaintenance"`
+}
+
+// AddLapkeuRequest is the body the asset service sends to finance when a
+// maintenance record is created, so the cost lands in the ledger.
+type AddLapkeuRequest struct {
+	ID           string    `json:"id"`
+	ActivityType int       `json:"activityType"`
+	Pemasukan    int64     `json:"pemasukan"`
+	Pengeluaran  int64     `json:"pengeluaran"`
+	Description  string    `json:"description"`
+	PaymentDate  Timestamp `json:"paymentDate"`
+}
