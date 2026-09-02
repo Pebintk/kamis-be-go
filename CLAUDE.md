@@ -2,94 +2,51 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Overview
+## What is in this repo
 
-KAMIS (a.k.a. "SI KAMIS" / sikamis.com) is an internal management system for PT Karina. The repo is split into two top-level projects that are deployed separately:
+KAMIS (a.k.a. "SI KAMIS" / sikamis.com) is an internal management system for PT Karina. This repo holds the **Go rewrite** of its backend.
 
-- `KAMIS-BE/` — Java 21 / Spring Boot 3.4 backend, organized as **six independent microservices**, each its own Gradle project.
-- `KAMIS-FE/kamis-fe/` — Vue 3 + TypeScript + Vite single-page app (Pinia, vue-router, Tailwind v4).
+- `KAMIS-BE-GO/` — the only tracked project. Go monorepo, shared `pkg/`, one deployable per directory under `services/`. **Start with `KAMIS-BE-GO/MIGRATION.md`**: it records the locked decisions, the per-service port status, and the contract quirks the frontend depends on. `KAMIS-BE-GO/README.md` covers layout and commands.
+- `KAMIS-BE/` and `KAMIS-FE/` — **gitignored local checkouts of the legacy Java and Vue apps**, kept as a read-only porting reference. They are not part of this repo and will be absent from a fresh clone. The frontend has its own repo at `git@github.com:Pebintk/kamis-fe-migrate.git`.
 
-There is no root build file or git repo at the top level; each microservice and the frontend are built independently.
+The rest of this file is orientation for those two reference checkouts, for use while porting.
 
-## Backend (`KAMIS-BE/`)
+## Legacy backend (`KAMIS-BE/`, reference only)
 
-### The six services
+Six independent Spring Boot 3.4 / Java 21 microservices, each a standalone Gradle project with its own Postgres database. Group `gpl.karina`, base package `gpl.karina.<service>`. All controllers map under `/api`; in Docker they reach each other at `http://<service>-service:<port>/api`.
 
-Each directory is a standalone Spring Boot app with its own `build.gradle`, `gradlew`, `Dockerfile`, and Postgres database. Group is `gpl.karina`, base package `gpl.karina.<service>`.
+| Service | Port | Responsibility |
+|---|---|---|
+| `profile` | 8080 | Auth + users/roles, clients, suppliers. **Only service that issues JWTs.** |
+| `asset` | 8081 | Assets (vehicles, by plate number) + maintenance. Stores images on disk. |
+| `finance.report` | 8082 | Financial reports, operational dashboard data. |
+| `project` | 8083 | Projects: distribution (`Distribution`) and sales/sell (`Sales`). |
+| `purchase` | 8084 | Purchasing of assets and resources. Stores images on disk. |
+| `resource` | 8085 | Resource/inventory catalog. |
 
-| Service | Port | Package | Responsibility |
-|---|---|---|---|
-| `profile` | 8080 | `gpl.karina.profile` | Auth + users/roles, clients, suppliers. **Only service that issues JWTs.** |
-| `asset` | 8081 | `gpl.karina.asset` | Assets (vehicles, by plate number) + maintenance. Stores images on disk. |
-| `finance.report` | 8082 | `gpl.karina.financereport` | Financial reports, operational dashboard data. |
-| `project` | 8083 | `gpl.karina.project` | Projects: distribution (`Distribution`) and sales/sell (`Sales`). |
-| `purchase` | 8084 | `gpl.karina.purchase` | Purchasing of assets and resources. Stores images on disk. |
-| `resource` | 8085 | `gpl.karina.resource` | Resource/inventory catalog. |
+Every service uses the same package layout (`model/`, `repository/`, `restcontroller/`, `restdto/{request,response}/`, `restservice/`, `security/`), which the Go port mirrors under `internal/` — so ports are near-mechanical.
 
-All controllers are mapped under `/api` (e.g. `@RequestMapping("/api/asset")`). In Docker, services reach each other via `http://<service>-service:<port>/api` (see `docker-compose-deploy.yml`).
+### Auth model
 
-### Per-service layout (consistent across all six)
-
-```
-src/main/java/gpl/karina/<service>/
-  config/         WebClient / app config
-  model/          JPA entities
-  repository/     Spring Data JPA repositories
-  restcontroller/ @RestController endpoints (under /api)
-  restdto/request, restdto/response   request & response DTOs
-  restservice/    business logic (service layer)
-  security/       WebSecurityConfig + jwt/ (JwtTokenFilter, JwtUtils) + service/
-```
-
-### Auth model (important)
-
-- **Asymmetric RSA JWT.** `profile` holds both keys: signs tokens with the **private** key (`JWT_SECRET_KEY`, base64 PKCS8) and exposes login. Every other service is given **only the public key** (`JWT_PUBLIC_KEY`, base64 X509) and validates tokens locally — there is no call back to `profile` to verify a token.
-- Each service has its own `JwtTokenFilter` + `JwtUtils` under `security/jwt/`. The public-key `JwtUtils` extracts `subject` (username) and a `role` claim.
-- Roles: **Admin, Operasional, Finance, Direksi** (plus the `EndUser` base). In `profile`, each role is a separate JPA entity (`Admin.java`, `Operasional.java`, etc.) subclassing/related to `EndUser`.
-- Inter-service calls use Spring `WebClient` (webflux), forwarding the caller's JWT.
+- **Asymmetric RSA JWT.** `profile` holds both keys and signs with the private key (`JWT_SECRET_KEY`, base64 PKCS8). Every other service is given **only** the public key (`JWT_PUBLIC_KEY`, base64 X509) and validates tokens locally — there is no call back to `profile` to verify a token.
+- Roles: Admin, Operasional, Finance, Direksi (plus the `EndUser` base). In `profile` each role is a separate JPA entity related to `EndUser`. Role casing differs by context — see MIGRATION.md.
+- Inter-service calls use Spring `WebClient`, forwarding the caller's JWT.
 
 ### Configuration
 
-- Config is read from environment variables, loaded from a per-service `.env` file (`spring.config.import: optional:file:.env`). Copy `.env.example` in each service. Key vars: `DATABASE_URL_<SERVICE>`, `DATABASE_USERNAME/PASSWORD`, `JWT_PUBLIC_KEY` (all services), `JWT_SECRET_KEY` + `JWT_EXPIRATION_MS` + `ADMIN_*` (profile only), and the `*_URL` service-discovery vars.
-- `application.yml` lives in `src/main/resources/`. JPA uses `ddl-auto: update` against PostgreSQL — schema is auto-managed, no migration tool.
+Config comes from environment variables loaded from a per-service `.env` (`spring.config.import: optional:file:.env`); copy each service's `.env.example`. **JPA runs `ddl-auto: update` against PostgreSQL — the schema is auto-managed and there is no migration tool**, so there is no schema history to consult when porting a model.
 
-### Common commands (run inside a service directory, e.g. `KAMIS-BE/profile/`)
+Build with `./gradlew` inside a service directory. Note CI runs `clean assemble` specifically, not `build`.
 
-```bash
-./gradlew bootRun              # run the service locally
-./gradlew clean assemble       # build jar (build/libs/<service>-0.0.1-SNAPSHOT.jar) — what CI runs
-./gradlew build                # build + run tests
-./gradlew test                 # run all tests (JUnit 5 + Mockito)
-./gradlew test --tests 'gpl.karina.profile.SomeTest'          # single test class
-./gradlew test --tests 'gpl.karina.profile.SomeTest.method'   # single test method
-```
+## Legacy frontend (`KAMIS-FE/kamis-fe/`, reference only)
 
-## Frontend (`KAMIS-FE/kamis-fe/`)
+Vue 3 `<script setup>` + TypeScript + Vite SPA (Pinia, vue-router, Tailwind v4), feature-foldered by the same six domains under `src/` — `views/`, `interfaces/`, `stores/` (stores own both API calls and state), plus shared `V*`-prefixed components.
 
-Vue 3 `<script setup>` SPA. Source is feature-foldered by the same six domains under `src/`:
+- **There is no API gateway.** `config/api.config.ts` gives each backend service its own base URL from a `VITE_API_*_URL` env var and the frontend talks to each microservice directly. Adopting a ported Go service means repointing one of these.
+- `router/index.ts` route `meta` drives access control: `requiresAuth` plus a `roles` array, checked by a global guard against `useAuthStore`. Role names here are PascalCase ("Operasional", "Finance"), matching the JWT `role` claim.
+- Auth uses `axios` + `jwt-decode`. `src/config/http.ts` attaches the bearer token through a single global request interceptor, installed from `main.ts` — don't add per-call `Authorization` headers.
+- **No test runner is configured.** `npm run build` runs `vue-tsc` type-checking as part of the build.
 
-- `views/<domain>/` — page components (asset, finance.report, profile, project, purchase, resource, errorpage).
-- `interfaces/<domain>/` — TypeScript types per domain.
-- `stores/` — Pinia stores (`auth.ts`, plus one per domain: `asset.ts`, `purchase.ts`, `project.ts`, `account.ts`, `client.ts`, `supplier.ts`, `financereport.ts`, etc.). Stores own API calls + state.
-- `components/` — shared UI (the `V*`-prefixed components are the reusable form/widget kit).
-- `config/api.config.ts` — central API config. Each backend service has its **own** base URL from a `VITE_API_*_URL` env var (`VITE_API_PROFILE_URL`, `VITE_API_ASSET_URL`, …). There is no API gateway; the frontend talks to each microservice directly. `API_ENDPOINTS` holds endpoint path builders.
-- `router/index.ts` — all routes. Route `meta` drives access control: `requiresAuth: boolean` and `roles: string[]` (e.g. `['Operasional']`, `['Finance']`). The global guard checks these against `useAuthStore`. Note role names here are the human-readable form ("Operasional", "Finance", "Admin", "Direksi"), matching the JWT role claim.
+## Deployment (legacy)
 
-Auth: `axios` for HTTP, `jwt-decode` to read the token; the auth store holds the token + decoded role.
-
-### Common commands (run inside `KAMIS-FE/kamis-fe/`)
-
-```bash
-npm install
-npm run dev          # Vite dev server
-npm run build        # type-check (vue-tsc) + production build
-npm run type-check   # vue-tsc --build only
-npm run lint         # eslint --fix
-npm run format       # prettier --write src/
-```
-
-There is no test runner configured for the frontend.
-
-## Deployment
-
-GitLab CI (`.gitlab-ci.yml` in both `KAMIS-BE/` and `KAMIS-FE/`) builds on the `main` / `gcp-deploy` branches: each BE service is built and published as a Docker image to `gcr.io/<project>`, then deployed via SSH using `docker-compose-deploy.yml`. The frontend builds to a Docker image served behind the public domain. Backend services run on the `kamis-network` Docker network and resolve each other by container name (`<service>-service`).
+GitLab CI in each of `KAMIS-BE/` and `KAMIS-FE/` builds on the `main` / `gcp-deploy` branches: each BE service publishes a Docker image to `gcr.io/<project>`, deployed over SSH using `docker-compose-deploy.yml` onto the `kamis-network` Docker network, where services resolve each other by container name. The Go services are not wired into this yet.

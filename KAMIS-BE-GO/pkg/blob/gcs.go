@@ -185,3 +185,21 @@ func ContentTypeFor(declared string) (string, bool) {
 		return "", false
 	}
 }
+
+// ExtensionFor returns the filename extension for a type ContentTypeFor
+// accepted, so generated keys carry one and the disk backend can recover the
+// content type from the key alone.
+func ExtensionFor(contentType string) string {
+	switch contentType {
+	case "image/jpeg":
+		return ".jpg"
+	case "image/png":
+		return ".png"
+	case "image/webp":
+		return ".webp"
+	case "image/gif":
+		return ".gif"
+	default:
+		return ".bin"
+	}
+}
