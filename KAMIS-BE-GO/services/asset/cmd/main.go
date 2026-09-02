@@ -55,10 +55,12 @@ func main() {
 	repo := repository.NewAssetRepository(db)
 	assetSvc := service.NewAssetService(repo, photos)
 	maintenanceSvc := service.NewMaintenanceService(repo, finance)
+	reservationSvc := service.NewReservationService(repo)
 
 	engine := router.New(verifier, cfg.AllowedOrigins(),
 		handler.NewAssetHandler(assetSvc),
-		handler.NewMaintenanceHandler(maintenanceSvc, assetSvc))
+		handler.NewMaintenanceHandler(maintenanceSvc, assetSvc),
+		handler.NewReservationHandler(reservationSvc))
 
 	if err := httpx.Serve(engine, cfg.Port); err != nil {
 		fail("server", err)

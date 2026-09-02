@@ -31,7 +31,7 @@ before continuing — most of the guidance below would change.
 |---|---|---|
 | profile | 8080 | **Ported.** Slice 1: auth + account core (login, JWT issuance, add/list/paginate/update accounts, admin seeding). Slice 2: Client CRUD. Slice 3: Supplier CRUD, including the cross-service calls to project/resource/asset/purchase. |
 | resource | 8085 | **Ported.** The full inventory catalogue: CRUD, the paginated/name-filtered list, the locked stock adjustments, the low-stock report, and the supplier-link endpoints profile calls. All 12 Java endpoints map 1:1. |
-| asset | 8081 | Not started. |
+| asset | 8081 | **Ported.** Assets + photos (GCS via `pkg/blob`), maintenance scheduling with reservation-conflict checks, and project reservations. All 21 Java endpoints map 1:1. |
 | finance.report | 8082 | Not started. |
 | project | 8083 | Not started. |
 | purchase | 8084 | Not started. |
@@ -68,8 +68,15 @@ Port one service at a time, copying `services/template`. When a service is
 ready, point the frontend's `VITE_API_*_URL` for that domain at it — there is no
 proxy layer and no coordination window, because nothing is serving traffic.
 
-Suggested order, easiest first: `finance.report` (leaf, verify-only), then
-`asset`, `purchase`, `project`. `profile` and `resource` are already done.
+Remaining, easiest first: `purchase`, then `project`, then `finance.report`.
+`profile`, `resource` and `asset` are done.
+
+`finance.report` is a leaf but goes **last**: it only *reads*, and everything it
+reads comes from `project` and `purchase`. Ported before them, its dashboard
+endpoints have nothing to answer with. `asset` went earlier despite also having
+an outbound call, because that call is a single fire-and-forget write to
+finance's ledger that the legacy service already swallowed on failure — a
+non-blocking dependency, where finance's are blocking.
 
 ## Contract quirks — verified against the Java source + FE stores
 
@@ -130,6 +137,21 @@ The resource service has no public routes at all. Its rules:
 | `GET /api/resource/viewall`, `/viewall/paginated`, `/find/{id}`, `/find-by-supplier/{id}`, `/find-by-stock/{n}` | all four |
 | `POST /api/resource/add` | Admin, Operasional |
 | `PUT /api/resource/update/{id}`, `/addToDb/{id}/{stock}`, `/{id}/add-stock`, `/{id}/deduct-stock`, `/add-supplier`, `/update-supplier` | Operasional, Admin |
+
+The asset service, likewise no public routes:
+
+| Route | Roles |
+|---|---|
+| every `GET /api/asset/**` | all four |
+| every `POST`/`PUT`/`DELETE` on `/api/asset/**`, reservations included | Operasional, Admin |
+| every `/api/maintenance/**`, **writes included** | all four |
+
+That last row is inherited, not chosen. `/api/maintenance/**` sits outside
+`/api/asset/**`, so the legacy config's per-method rules never matched it and
+every maintenance route — including booking a job and completing one — fell
+through to `.anyRequest().authenticated()`. It is not a hole (all four roles are
+authenticated), so it was ported as-is rather than silently tightened, but it is
+inconsistent with the asset writes beside it and worth a decision.
 
 ### Error statuses are uniform
 
@@ -272,7 +294,7 @@ the message so callers can tell a 404 apart from a 500.
 
 ## Notes for the next port
 
-Six shared pieces exist now; use them rather than reinventing per service.
+Nine shared pieces exist now; use them rather than reinventing per service.
 
 **`httpx.Serve(engine, port)`** replaces gin's `Engine.Run`. It sets read/write/
 idle timeouts (a bare `http.Server` has none, so one slow client can hold a
@@ -304,6 +326,24 @@ whatever token they were handed regardless of whether the route required one.
 total)`. Services re-export it from their `dto` package as `dto.PageOf` /
 `dto.NewPage`, because several paginated methods take a parameter literally
 named `page`, which would shadow the import.
+
+**`pkg/blob`** stores the images the asset and purchase services accept. GCS in
+deployment, a local directory when `GCS_BUCKET` is unset — that fallback is what
+lets `make run` and the tests work without Google credentials. It deliberately
+avoids `cloud.google.com/go/storage`: measured against this module's 60-module
+baseline, the official client adds 139 modules and a 47M binary to do three
+operations, where `golang.org/x/oauth2` plus `net/http` adds two. Authentication
+is still Google's library, so on a GCE VM it reads the instance metadata server
+and there is no key file to deploy. `ValidKey` rejects path traversal at every
+backend method, and `ContentTypeFor` rejects non-images.
+
+**`pkg/apierr`** holds the two error types every service's handlers branch on:
+`Invalid` (400) and `NotFound` (404). Pair it with `httpx.RespondError`, which
+also keeps a 500's underlying error out of the response body.
+
+**`pkg/jsontime`** renders dates the way Jackson did once Spring Boot disabled
+`WRITE_DATES_AS_TIMESTAMPS`. Use `jsontime.UTC` for fields with no
+`@JsonFormat`, `jsontime.Jakarta` for annotated ones.
 
 **`config.Base.AllowedOrigins()`** returns the CORS origins to hand
 `httpx.CORS`. The Java `CorsConfig` in every service also listed the sibling

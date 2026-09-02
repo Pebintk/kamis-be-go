@@ -18,7 +18,8 @@ var allRoles = []string{"Admin", "Direksi", "Finance", "Operasional"}
 // /api/asset/**.
 var writeRoles = []string{"Operasional", "Admin"}
 
-func New(v *auth.Verifier, allowedOrigins []string, assets *handler.AssetHandler, maintenance *handler.MaintenanceHandler) *gin.Engine {
+func New(v *auth.Verifier, allowedOrigins []string, assets *handler.AssetHandler, maintenance *handler.MaintenanceHandler,
+	reservations *handler.ReservationHandler) *gin.Engine {
 	r := gin.New()
 	r.Use(httpx.RequestLogger(), gin.Recovery(), httpx.CORS(allowedOrigins), auth.ForwardToken())
 
@@ -30,6 +31,15 @@ func New(v *auth.Verifier, allowedOrigins []string, assets *handler.AssetHandler
 	{
 		read := auth.GinRequireRole(allRoles...)
 		write := auth.GinRequireRole(writeRoles...)
+
+		// The reservation routes come first: their static "reservations" segment
+		// sits beside the :platNomor wildcard below.
+		secured.POST("/asset/reservations/check-availability", write, reservations.CheckAvailability)
+		secured.POST("/asset/reservations/reserve", write, reservations.Reserve)
+		secured.PUT("/asset/reservations/project/:projectId/status", write, reservations.UpdateProjectStatus)
+		secured.PUT("/asset/reservations/:reservationId/status", write, reservations.UpdateStatus)
+		secured.GET("/asset/reservations/asset/:platNomor", read, reservations.ByAsset)
+		secured.GET("/asset/reservations/project/:projectId", read, reservations.ByProject)
 
 		secured.GET("/asset/all", read, assets.All)
 		secured.GET("/asset/viewall/paginated", read, assets.Paginated)

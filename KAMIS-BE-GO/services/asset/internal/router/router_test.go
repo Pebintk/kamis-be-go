@@ -33,7 +33,7 @@ func testVerifier(t *testing.T) *auth.Verifier {
 func newTestEngine(t *testing.T) *gin.Engine {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
-	return New(testVerifier(t), nil, nil, nil)
+	return New(testVerifier(t), nil, nil, nil, nil)
 }
 
 // TestRoutesRegister pins the route table and guards against a gin conflict
@@ -82,6 +82,12 @@ func TestTokenRequirement(t *testing.T) {
 		{http.MethodGet, "/api/maintenance/maintenance-in-progress"},
 		{http.MethodGet, "/api/maintenance/B1234XYZ"},
 		{http.MethodPatch, "/api/maintenance/7/complete"},
+		{http.MethodPost, "/api/asset/reservations/check-availability"},
+		{http.MethodPost, "/api/asset/reservations/reserve"},
+		{http.MethodPut, "/api/asset/reservations/project/PRJ-1/status"},
+		{http.MethodPut, "/api/asset/reservations/abc/status"},
+		{http.MethodGet, "/api/asset/reservations/asset/B1234XYZ"},
+		{http.MethodGet, "/api/asset/reservations/project/PRJ-1"},
 	}
 
 	for _, tc := range cases {
@@ -100,41 +106,5 @@ func TestHealthIsPublic(t *testing.T) {
 	newTestEngine(t).ServeHTTP(res, httptest.NewRequest(http.MethodGet, "/health", nil))
 	if res.Code != http.StatusOK {
 		t.Errorf("GET /health = %d, want 200", res.Code)
-	}
-}
-
-// TestReservationRoutesWillFit registers the reservation paths that slice 3 adds
-// alongside the ones above, so a gin conflict between the static "reservations"
-// segment and the :platNomor wildcard surfaces now rather than then.
-func TestReservationRoutesWillFit(t *testing.T) {
-	defer func() {
-		if r := recover(); r != nil {
-			t.Fatalf("gin rejected the reservation routes: %v", r)
-		}
-	}()
-
-	engine := newTestEngine(t)
-	nop := func(*gin.Context) {}
-	g := engine.Group("/api")
-	g.POST("/asset/reservations/check-availability", nop)
-	g.POST("/asset/reservations/reserve", nop)
-	g.PUT("/asset/reservations/project/:projectId/status", nop)
-	g.PUT("/asset/reservations/:reservationId/status", nop)
-	g.GET("/asset/reservations/asset/:platNomor", nop)
-	g.GET("/asset/reservations/project/:projectId", nop)
-}
-
-// TestMaintenanceTrailingSlash pins the path the frontend actually posts to. The
-// legacy controller is mapped at "/api/maintenance/", and gin treats that as a
-// different route from "/api/maintenance".
-func TestMaintenanceTrailingSlash(t *testing.T) {
-	var found bool
-	for _, route := range newTestEngine(t).Routes() {
-		if route.Method == http.MethodPost && route.Path == "/api/maintenance/" {
-			found = true
-		}
-	}
-	if !found {
-		t.Error("POST /api/maintenance/ is not registered with its trailing slash")
 	}
 }

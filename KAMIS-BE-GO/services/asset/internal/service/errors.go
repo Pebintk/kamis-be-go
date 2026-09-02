@@ -30,6 +30,14 @@ func maintenanceNotFound(err error, id int64) error {
 	return err
 }
 
+// reservationNotFound is notFound for bookings, which are keyed by UUID.
+func reservationNotFound(err error, id string) error {
+	if errors.Is(err, database.ErrNotFound) {
+		return apierr.NotFoundf("Reservasi dengan ID %s tidak ditemukan", id)
+	}
+	return err
+}
+
 // photoKey derives the blob key for an asset's photo.
 //
 // Java used the plate number as the filename directly, which does not survive

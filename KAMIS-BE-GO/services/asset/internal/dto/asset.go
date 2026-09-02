@@ -115,3 +115,34 @@ type AddLapkeuRequest struct {
 	Description  string    `json:"description"`
 	PaymentDate  Timestamp `json:"paymentDate"`
 }
+
+// AssetAvailabilityRequest is the body of POST /api/asset/reservations/check-availability.
+// ExcludeProjectId is optional: when editing a project's asset list, that
+// project's own bookings must not count against it.
+type AssetAvailabilityRequest struct {
+	PlatNomors       []string   `json:"platNomors" binding:"required"`
+	StartDate        *Timestamp `json:"startDate" binding:"required"`
+	EndDate          *Timestamp `json:"endDate" binding:"required"`
+	ExcludeProjectID string     `json:"excludeProjectId"`
+}
+
+// AssetReservationRequest is the body of POST /api/asset/reservations/reserve.
+type AssetReservationRequest struct {
+	PlatNomors []string   `json:"platNomors" binding:"required"`
+	ProjectID  string     `json:"projectId" binding:"required"`
+	StartDate  *Timestamp `json:"startDate" binding:"required"`
+	EndDate    *Timestamp `json:"endDate" binding:"required"`
+}
+
+// AssetReservationResponse is one booking. AssetName and AssetType are carried
+// for the caller's convenience, as they were in Java.
+type AssetReservationResponse struct {
+	ID                string    `json:"id"`
+	PlatNomor         string    `json:"platNomor"`
+	ProjectID         string    `json:"projectId"`
+	StartDate         Timestamp `json:"startDate"`
+	EndDate           Timestamp `json:"endDate"`
+	ReservationStatus string    `json:"reservationStatus"`
+	AssetName         string    `json:"assetName"`
+	AssetType         string    `json:"assetType"`
+}

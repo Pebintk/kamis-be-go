@@ -198,3 +198,71 @@ func (r *AssetRepository) FindReservationsByAsset(ctx context.Context, platNomor
 		Order("start_date").Find(&out).Error
 	return out, err
 }
+
+func (r *AssetRepository) FindReservationByID(ctx context.Context, id string) (*model.AssetReservation, error) {
+	var res model.AssetReservation
+	if err := r.db.WithContext(ctx).Where("id = ?", id).First(&res).Error; err != nil {
+		return nil, database.Translate(err)
+	}
+	return &res, nil
+}
+
+func (r *AssetRepository) FindReservationsByProject(ctx context.Context, projectID string) ([]model.AssetReservation, error) {
+	var out []model.AssetReservation
+	err := r.db.WithContext(ctx).Where("project_id = ?", projectID).
+		Order("start_date").Find(&out).Error
+	return out, err
+}
+
+func (r *AssetRepository) CreateReservations(ctx context.Context, reservations []model.AssetReservation) error {
+	if len(reservations) == 0 {
+		return nil
+	}
+	return database.Translate(r.db.WithContext(ctx).Create(&reservations).Error)
+}
+
+func (r *AssetRepository) SaveReservation(ctx context.Context, res *model.AssetReservation) error {
+	return database.Translate(r.db.WithContext(ctx).Save(res).Error)
+}
+
+// SetReservationStatusForProject updates every booking a project holds in one
+// statement, where Java loaded them, mutated each, and saved the list back.
+func (r *AssetRepository) SetReservationStatusForProject(ctx context.Context, projectID, status string) error {
+	return database.Translate(r.db.WithContext(ctx).Model(&model.AssetReservation{}).
+		Where("project_id = ?", projectID).Update("reservation_status", status).Error)
+}
+
+// FindOverlappingReservations returns the live bookings on the given vehicles
+// that intersect [start, end], optionally ignoring one project's own bookings.
+//
+// The Java query ORed three range predicates together; the first of them —
+// start <= :end AND end >= :start — is the whole overlap test on its own and the
+// other two are subsumed by it.
+func (r *AssetRepository) FindOverlappingReservations(ctx context.Context, platNomors []string, start, end time.Time, excludeProjectID string) ([]model.AssetReservation, error) {
+	if len(platNomors) == 0 {
+		return nil, nil
+	}
+
+	q := r.db.WithContext(ctx).
+		Where("plat_nomor IN ?", platNomors).
+		Where("reservation_status IN ?", []string{model.ReservationDirencanakan, model.ReservationDilaksanakan}).
+		Where("start_date <= ? AND end_date >= ?", end, start)
+	if excludeProjectID != "" {
+		q = q.Where("project_id <> ?", excludeProjectID)
+	}
+
+	var out []model.AssetReservation
+	err := q.Find(&out).Error
+	return out, err
+}
+
+// CountActiveReservations reports how many live bookings a vehicle still has,
+// which decides whether finishing one returns it to service.
+func (r *AssetRepository) CountActiveReservations(ctx context.Context, platNomor string) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&model.AssetReservation{}).
+		Where("plat_nomor = ?", platNomor).
+		Where("reservation_status IN ?", []string{model.ReservationDirencanakan, model.ReservationDilaksanakan}).
+		Count(&count).Error
+	return count, err
+}

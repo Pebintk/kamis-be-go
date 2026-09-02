@@ -14,13 +14,17 @@ casings, token shape, response envelope) that must be preserved.
 
 ```
 pkg/
+  apierr/     the Invalid (400) / NotFound (404) error types handlers branch on
   auth/       JWT Verifier (all services) + Issuer (profile only) + Gin middleware
+  blob/       image storage: GCS, or a local directory for development
   config/     env/.env loading
   database/   GORM Postgres connection + error translation
   httpx/      response envelope, CORS, logging, HTTP server, service-to-service client
+  jsontime/   Jackson-compatible date rendering
   page/       the Spring Data Page JSON shape the frontend consumes
 services/
   profile/    auth, accounts, clients, suppliers  (port 8080)
+  asset/      vehicles, photos, maintenance, reservations (port 8081)
   resource/   inventory catalogue                 (port 8085)
   template/   copyable skeleton service (sample "Resource" domain)
     cmd/                       entrypoint (main.go)
