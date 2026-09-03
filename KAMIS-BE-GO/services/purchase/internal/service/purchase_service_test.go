@@ -81,10 +81,10 @@ func parseID(s string) int64 {
 // TestBuildLines covers the validation a resource purchase goes through against
 // the live catalogue before anything is written.
 func TestBuildLines(t *testing.T) {
-	svc := NewPurchaseService(nil, nil, catalogue(t, map[int64]string{
+	svc := NewPurchaseService(nil, Deps{Resource: catalogue(t, map[int64]string{
 		1: "Semen",
 		2: "Besi",
-	}))
+	})})
 	ctx := context.Background()
 
 	line := func(id int64, name string, total, price int) dto.ResourceLineRequest {
@@ -132,7 +132,7 @@ func TestBuildLines(t *testing.T) {
 // and the payload, all of which run before the database is touched. The service
 // has a nil repository, so a call that reached it would panic.
 func TestAddPurchaseTypeMismatch(t *testing.T) {
-	svc := NewPurchaseService(nil, nil, catalogue(t, map[int64]string{1: "Semen"}))
+	svc := NewPurchaseService(nil, Deps{Resource: catalogue(t, map[int64]string{1: "Semen"})})
 	ctx := context.Background()
 
 	cases := map[string]dto.AddPurchaseRequest{
@@ -177,7 +177,7 @@ func TestSupplierNameToleratesOutage(t *testing.T) {
 	}))
 	defer down.Close()
 
-	svc := NewPurchaseService(nil, httpx.NewClient(down.URL, httpx.DefaultTimeout), nil)
+	svc := NewPurchaseService(nil, Deps{Profile: httpx.NewClient(down.URL, httpx.DefaultTimeout)})
 	if got := svc.supplierName(context.Background(), sampleUUID); got != "" {
 		t.Errorf("supplierName on an outage = %q, want an empty name", got)
 	}
@@ -194,7 +194,7 @@ func TestSupplierNamesDeduplicates(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	svc := NewPurchaseService(nil, httpx.NewClient(srv.URL, httpx.DefaultTimeout), nil)
+	svc := NewPurchaseService(nil, Deps{Profile: httpx.NewClient(srv.URL, httpx.DefaultTimeout)})
 	purchases := make([]model.Purchase, 20)
 	for i := range purchases {
 		purchases[i].PurchaseSupplier = sampleUUID

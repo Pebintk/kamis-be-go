@@ -131,3 +131,32 @@ type ResourceResponse struct {
 	ResourceStock       int    `json:"resourceStock"`
 	ResourcePrice       int    `json:"resourcePrice"`
 }
+
+// UpdateStatusRequest is the body of the three /updatestatus/* endpoints. The
+// note is required on all of them; PlatNomor is required only when completing an
+// asset purchase, since that is when the asset gets registered for real.
+type UpdateStatusRequest struct {
+	PurchaseNote *string `json:"purchaseNote" binding:"required"`
+	PlatNomor    string  `json:"platNomor"`
+}
+
+// AddAssetTempRequest is the multipart form of POST /api/purchase/addAsset.
+// It stages an asset for a purchase; the photo arrives under the form key
+// "foto".
+type AddAssetTempRequest struct {
+	AssetName        string `form:"assetName" binding:"required"`
+	AssetDescription string `form:"assetDescription" binding:"required"`
+	AssetType        string `form:"assetType" binding:"required"`
+	AssetPrice       *int   `form:"assetPrice" binding:"required"`
+}
+
+// AddLapkeuRequest is the body purchase sends to finance when a payment is
+// confirmed, so the spend lands in the ledger.
+type AddLapkeuRequest struct {
+	ID           string    `json:"id"`
+	ActivityType int       `json:"activityType"`
+	Pemasukan    int64     `json:"pemasukan"`
+	Pengeluaran  int64     `json:"pengeluaran"`
+	Description  string    `json:"description"`
+	PaymentDate  Timestamp `json:"paymentDate"`
+}

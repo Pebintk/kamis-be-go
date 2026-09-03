@@ -61,7 +61,7 @@ func signedToken(t *testing.T, role string) string {
 func newTestEngine(t *testing.T) *gin.Engine {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
-	return New(testVerifier(t), nil, nil)
+	return New(testVerifier(t), nil, nil, nil)
 }
 
 // TestRoutesRegister pins the route table and guards against a gin conflict
@@ -96,6 +96,12 @@ func TestTokenRequirement(t *testing.T) {
 		{http.MethodGet, "/api/purchase/viewall/paginated"},
 		{http.MethodGet, "/api/purchase/detail/R-030926-001"},
 		{http.MethodGet, "/api/purchase/supplier/abc"},
+		{http.MethodPost, "/api/purchase/addAsset"},
+		{http.MethodGet, "/api/purchase/asset/7"},
+		{http.MethodGet, "/api/purchase/asset/7/foto"},
+		{http.MethodPut, "/api/purchase/updatestatus/next/R-030926-001"},
+		{http.MethodPut, "/api/purchase/updatestatus/cancel/R-030926-001"},
+		{http.MethodPut, "/api/purchase/updatestatus/pembayaran/R-030926-001"},
 	}
 
 	for _, tc := range cases {
@@ -115,6 +121,7 @@ func TestWritesAreRestricted(t *testing.T) {
 	writes := []struct{ method, path string }{
 		{http.MethodPost, "/api/purchase/add"},
 		{http.MethodPut, "/api/purchase/update/R-030926-001"},
+		{http.MethodPost, "/api/purchase/addAsset"},
 	}
 	for _, tc := range writes {
 		for _, role := range []string{"Finance", "Direksi"} {

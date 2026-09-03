@@ -7,6 +7,7 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"time"
@@ -181,4 +182,41 @@ func queryDate(c *gin.Context, name string) (*time.Time, error) {
 		return nil, badQuery(name, raw, "tanggal dd-MM-yyyy")
 	}
 	return &v, nil
+}
+
+// AdvanceStatus handles PUT /api/purchase/updatestatus/next/{idPurchase}.
+func (h *PurchaseHandler) AdvanceStatus(c *gin.Context) {
+	h.changeStatus(c, h.svc.AdvanceStatus, "Status pembelian berhasil diperbarui")
+}
+
+// CancelStatus handles PUT /api/purchase/updatestatus/cancel/{idPurchase}.
+func (h *PurchaseHandler) CancelStatus(c *gin.Context) {
+	h.changeStatus(c, h.svc.CancelStatus, "Status pembelian berhasil dibatalkan")
+}
+
+// ConfirmPayment handles PUT /api/purchase/updatestatus/pembayaran/{idPurchase}.
+func (h *PurchaseHandler) ConfirmPayment(c *gin.Context) {
+	h.changeStatus(c, h.svc.ConfirmPayment, "Status pembayaran berhasil diperbarui")
+}
+
+// changeStatus is the shared body of the three status endpoints, which differ
+// only in the service call and the success message. Which roles may take a
+// given transition depends on the purchase's current status, so that check lives
+// in the service rather than on the route.
+func (h *PurchaseHandler) changeStatus(
+	c *gin.Context,
+	apply func(ctx context.Context, purchaseID string, req dto.UpdateStatusRequest) (*dto.PurchaseResponse, error),
+	message string,
+) {
+	var req dto.UpdateStatusRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httpx.Respond(c, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+	purchase, err := apply(c.Request.Context(), c.Param("idPurchase"), req)
+	if err != nil {
+		httpx.RespondError(c, err)
+		return
+	}
+	httpx.Respond(c, http.StatusOK, message, purchase)
 }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/karina/kamis-be-go/pkg/apierr"
 	"github.com/karina/kamis-be-go/pkg/auth"
+	"github.com/karina/kamis-be-go/pkg/blob"
 	"github.com/karina/kamis-be-go/pkg/httpx"
 	"github.com/karina/kamis-be-go/pkg/jsontime"
 	"github.com/karina/kamis-be-go/services/purchase/internal/dto"
@@ -21,14 +22,28 @@ import (
 // lookups.
 const supplierFetchConcurrency = 8
 
-type PurchaseService struct {
-	repo     *repository.PurchaseRepository
-	profile  *httpx.Client
-	resource *httpx.Client
+// Deps are the collaborators the purchase flows reach out to. Bundled so the
+// constructor does not grow a parameter per downstream service.
+type Deps struct {
+	// Profile resolves supplier names and is told which purchases a supplier has.
+	Profile *httpx.Client
+	// Resource validates catalogue items and is credited stock on completion.
+	Resource *httpx.Client
+	// Asset registers a staged asset for real once its purchase completes.
+	Asset *httpx.Client
+	// Finance receives the spend when a payment is confirmed.
+	Finance *httpx.Client
+	// Photos holds the staged assets' images.
+	Photos blob.Store
 }
 
-func NewPurchaseService(repo *repository.PurchaseRepository, profile, resource *httpx.Client) *PurchaseService {
-	return &PurchaseService{repo: repo, profile: profile, resource: resource}
+type PurchaseService struct {
+	repo *repository.PurchaseRepository
+	Deps
+}
+
+func NewPurchaseService(repo *repository.PurchaseRepository, deps Deps) *PurchaseService {
+	return &PurchaseService{repo: repo, Deps: deps}
 }
 
 // typeName is the string the DTOs carry for a purchase's type.
@@ -58,7 +73,7 @@ func username(ctx context.Context) string {
 // swallow-and-continue choice MIGRATION.md records for the profile service's own
 // cross-service reads.
 func (s *PurchaseService) supplierName(ctx context.Context, supplierID string) string {
-	name, err := httpx.GetData[string](ctx, s.profile, "/supplier/name/"+supplierID)
+	name, err := httpx.GetData[string](ctx, s.Profile, "/supplier/name/"+supplierID)
 	if err != nil {
 		slog.WarnContext(ctx, "could not resolve supplier name",
 			"supplier", supplierID, "error", err)
@@ -103,7 +118,7 @@ func (s *PurchaseService) supplierNames(ctx context.Context, purchases []model.P
 // attachToSupplier tells the profile service that a supplier now has this
 // purchase against it.
 func (s *PurchaseService) attachToSupplier(ctx context.Context, purchaseID, supplierID string) error {
-	return s.profile.Put(ctx, "/supplier/add-purchase", dto.AddPurchaseIDRequest{
+	return s.Profile.Put(ctx, "/supplier/add-purchase", dto.AddPurchaseIDRequest{
 		PurchaseID: purchaseID,
 		SupplierID: supplierID,
 	})
@@ -111,7 +126,7 @@ func (s *PurchaseService) attachToSupplier(ctx context.Context, purchaseID, supp
 
 // catalogueItem looks one resource up in the resource service's catalogue.
 func (s *PurchaseService) catalogueItem(ctx context.Context, resourceID int64) (*dto.ResourceResponse, error) {
-	item, err := httpx.GetData[*dto.ResourceResponse](ctx, s.resource,
+	item, err := httpx.GetData[*dto.ResourceResponse](ctx, s.Resource,
 		"/resource/find/"+itoa(resourceID))
 	if err != nil {
 		return nil, err

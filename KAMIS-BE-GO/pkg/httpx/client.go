@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"strings"
 	"time"
 )
@@ -129,4 +131,84 @@ func ContextWithToken(ctx context.Context, raw string) context.Context {
 func TokenFromContext(ctx context.Context) string {
 	raw, _ := ctx.Value(tokenKey{}).(string)
 	return raw
+}
+
+// ---- multipart ----
+
+// FilePart is one file in a multipart request.
+type FilePart struct {
+	Field       string
+	Filename    string
+	ContentType string
+	Body        io.Reader
+}
+
+// PostForm sends a multipart/form-data POST — the Go stand-in for Spring's
+// BodyInserters.fromMultipartData. file may be nil.
+//
+// The body is streamed through an io.Pipe rather than assembled in memory, so
+// forwarding a 10MB photo between services costs a buffer, not a copy of the
+// image.
+func (c *Client) PostForm(ctx context.Context, path string, fields map[string]string, file *FilePart) error {
+	if c == nil || c.baseURL == "" {
+		return fmt.Errorf("no base URL configured for this service")
+	}
+
+	pr, pw := io.Pipe()
+	form := multipart.NewWriter(pw)
+
+	go func() {
+		// CloseWithError(nil) is Close; a write error is handed to the reader so
+		// the request fails instead of hanging on a truncated body.
+		pw.CloseWithError(writeForm(form, fields, file))
+	}()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, pr)
+	if err != nil {
+		_ = pr.CloseWithError(err)
+		return err
+	}
+	req.Header.Set("Content-Type", form.FormDataContentType())
+	if token := TokenFromContext(ctx); token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+
+	res, err := c.http.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = res.Body.Close() }()
+
+	if res.StatusCode >= 400 {
+		return fmt.Errorf("POST %s: downstream returned %d", path, res.StatusCode)
+	}
+	return nil
+}
+
+// writeForm builds the multipart body. It always closes the writer, so the
+// trailing boundary is present even on a partial write.
+func writeForm(form *multipart.Writer, fields map[string]string, file *FilePart) error {
+	for name, value := range fields {
+		if err := form.WriteField(name, value); err != nil {
+			return err
+		}
+	}
+
+	if file != nil {
+		header := make(textproto.MIMEHeader)
+		header.Set("Content-Disposition",
+			fmt.Sprintf(`form-data; name=%q; filename=%q`, file.Field, file.Filename))
+		if file.ContentType != "" {
+			header.Set("Content-Type", file.ContentType)
+		}
+
+		part, err := form.CreatePart(header)
+		if err != nil {
+			return err
+		}
+		if _, err := io.Copy(part, file.Body); err != nil {
+			return err
+		}
+	}
+	return form.Close()
 }

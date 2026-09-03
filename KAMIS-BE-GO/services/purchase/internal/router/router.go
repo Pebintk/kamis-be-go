@@ -17,7 +17,8 @@ var allRoles = []string{"Admin", "Direksi", "Finance", "Operasional"}
 // writeRoles guards creating and editing a purchase.
 var writeRoles = []string{"Operasional", "Admin"}
 
-func New(v *auth.Verifier, allowedOrigins []string, purchases *handler.PurchaseHandler) *gin.Engine {
+func New(v *auth.Verifier, allowedOrigins []string,
+	purchases *handler.PurchaseHandler, staged *handler.AssetTempHandler) *gin.Engine {
 	r := gin.New()
 	r.Use(httpx.RequestLogger(), gin.Recovery(), httpx.CORS(allowedOrigins), auth.ForwardToken())
 
@@ -37,6 +38,21 @@ func New(v *auth.Verifier, allowedOrigins []string, purchases *handler.PurchaseH
 		secured.GET("/purchase/viewall/paginated", read, purchases.Paginated)
 		secured.GET("/purchase/detail/:purchaseId", read, purchases.Detail)
 		secured.GET("/purchase/supplier/:supplierId", read, purchases.BySupplier)
+
+		// Staged assets: created here while a purchase is in flight, handed to
+		// the asset service once it completes.
+		secured.POST("/purchase/addAsset", write, staged.Add)
+		secured.GET("/purchase/asset/:idAsset", read, staged.Detail)
+		secured.GET("/purchase/asset/:idAsset/foto", read, staged.Photo)
+
+		// The status endpoints are open to all four roles at the route level
+		// because which role may act depends on the purchase's current status —
+		// Direksi and Finance approve a submission, Operasional processes and
+		// completes it, Finance alone confirms payment. Those rules are enforced
+		// in the service, where the status is known.
+		secured.PUT("/purchase/updatestatus/next/:idPurchase", read, purchases.AdvanceStatus)
+		secured.PUT("/purchase/updatestatus/cancel/:idPurchase", read, purchases.CancelStatus)
+		secured.PUT("/purchase/updatestatus/pembayaran/:idPurchase", read, purchases.ConfirmPayment)
 	}
 
 	return r

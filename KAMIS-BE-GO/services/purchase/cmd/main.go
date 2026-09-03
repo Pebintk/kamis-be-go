@@ -4,10 +4,12 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"os"
 
 	"github.com/karina/kamis-be-go/pkg/auth"
+	"github.com/karina/kamis-be-go/pkg/blob"
 	"github.com/karina/kamis-be-go/pkg/config"
 	"github.com/karina/kamis-be-go/pkg/database"
 	"github.com/karina/kamis-be-go/pkg/httpx"
@@ -44,16 +46,31 @@ func main() {
 		fail("auth verifier", err)
 	}
 
+	// GCS when GCS_BUCKET is set, a local directory otherwise — see pkg/blob.
+	photos, err := blob.FromEnv(context.Background())
+	if err != nil {
+		fail("photo storage", err)
+	}
+
 	// Clients for the services purchase reads from and writes to. An unset URL
 	// disables that dependency: the call fails and is logged, the same way the
 	// legacy WebClient errors were handled.
-	profile := httpx.NewClient(os.Getenv("PROFILE_URL"), httpx.DefaultTimeout)
-	resource := httpx.NewClient(os.Getenv("RESOURCE_URL"), httpx.DefaultTimeout)
+	deps := service.Deps{
+		Profile:  httpx.NewClient(os.Getenv("PROFILE_URL"), httpx.DefaultTimeout),
+		Resource: httpx.NewClient(os.Getenv("RESOURCE_URL"), httpx.DefaultTimeout),
+		Asset:    httpx.NewClient(os.Getenv("ASSET_URL"), httpx.DefaultTimeout),
+		Finance:  httpx.NewClient(os.Getenv("FINANCE_URL"), httpx.DefaultTimeout),
+		Photos:   photos,
+	}
 
 	repo := repository.NewPurchaseRepository(db)
-	handlers := handler.NewPurchaseHandler(service.NewPurchaseService(repo, profile, resource))
+	svc := service.NewPurchaseService(repo, deps)
 
-	if err := httpx.Serve(router.New(verifier, cfg.AllowedOrigins(), handlers), cfg.Port); err != nil {
+	engine := router.New(verifier, cfg.AllowedOrigins(),
+		handler.NewPurchaseHandler(svc),
+		handler.NewAssetTempHandler(svc))
+
+	if err := httpx.Serve(engine, cfg.Port); err != nil {
 		fail("server", err)
 	}
 }
