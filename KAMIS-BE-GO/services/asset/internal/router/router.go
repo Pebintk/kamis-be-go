@@ -54,19 +54,20 @@ func New(v *auth.Verifier, allowedOrigins []string, assets *handler.AssetHandler
 		secured.PUT("/asset/:platNomor/supplier", write, assets.SetSupplier)
 		secured.DELETE("/asset/:platNomor", write, assets.Delete)
 
-		// /api/maintenance/** sits outside /api/asset/**, so the legacy config's
-		// method rules never applied to it and every route fell through to
-		// .anyRequest().authenticated() — including the writes. Kept as-is;
-		// see MIGRATION.md on the inconsistency.
-		//
-		// The trailing slash on the create route is load-bearing: the legacy
-		// controller is mapped at "/api/maintenance/" and the frontend posts
-		// there.
-		secured.POST("/maintenance/", read, maintenance.Create)
-		secured.GET("/maintenance/all", read, maintenance.All)
-		secured.GET("/maintenance/maintenance-in-progress", read, maintenance.InProgress)
-		secured.GET("/maintenance/:platNomor", read, maintenance.ByAsset)
-		secured.PATCH("/maintenance/:id/complete", read, maintenance.Complete)
+		// Maintenance moved under /api/asset/ from the legacy /api/maintenance/.
+		// Sitting outside /api/asset/** is what let it fall through the
+		// WebSecurityConfig method rules to .anyRequest().authenticated(), so
+		// booking and completing a job were open to every role while the asset
+		// writes beside them were not. One prefix now means one rule, and the
+		// writes carry the same guard as the rest of the service.
+		secured.POST("/asset/maintenance", write, maintenance.Create)
+		secured.GET("/asset/maintenance/all", read, maintenance.All)
+		secured.GET("/asset/maintenance/in-progress", read, maintenance.InProgress)
+		secured.PATCH("/asset/maintenance/:id/complete", write, maintenance.Complete)
+
+		// The legacy GET /api/maintenance/{platNomor} is gone: it returned the
+		// same list as GET /api/asset/{platNomor}/maintenance above, through the
+		// same service call. The surviving one reads as what it is.
 	}
 
 	return r

@@ -59,7 +59,7 @@ func main() {
 
 	engine := router.New(verifier, cfg.AllowedOrigins(),
 		handler.NewAssetHandler(assetSvc),
-		handler.NewMaintenanceHandler(maintenanceSvc, assetSvc),
+		handler.NewMaintenanceHandler(maintenanceSvc),
 		handler.NewReservationHandler(reservationSvc))
 
 	if err := httpx.Serve(engine, cfg.Port); err != nil {

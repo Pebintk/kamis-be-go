@@ -144,14 +144,36 @@ The asset service, likewise no public routes:
 |---|---|
 | every `GET /api/asset/**` | all four |
 | every `POST`/`PUT`/`DELETE` on `/api/asset/**`, reservations included | Operasional, Admin |
-| every `/api/maintenance/**`, **writes included** | all four |
+| `GET /api/asset/maintenance/**` | all four |
+| `POST /api/asset/maintenance`, `PATCH /api/asset/maintenance/{id}/complete` | Operasional, Admin |
 
-That last row is inherited, not chosen. `/api/maintenance/**` sits outside
-`/api/asset/**`, so the legacy config's per-method rules never matched it and
-every maintenance route — including booking a job and completing one — fell
-through to `.anyRequest().authenticated()`. It is not a hole (all four roles are
-authenticated), so it was ported as-is rather than silently tightened, but it is
-inconsistent with the asset writes beside it and worth a decision.
+**Maintenance was moved under `/api/asset/`** from the legacy
+`/api/maintenance/`, and its writes now carry the same guard as every other
+write in the service.
+
+Sitting outside `/api/asset/**` is precisely what let it fall through the
+`WebSecurityConfig` per-method rules to `.anyRequest().authenticated()`, so
+booking and completing a job were open to every role while the asset writes
+beside them were Operasional/Admin. One prefix means one rule, and
+`TestEverythingIsUnderAsset` fails if any future route lands outside it.
+
+The role change is enforcement, not new policy: `DetailAssetView.vue` already
+gated every maintenance button on `canEditAsset`, which is `Operasional ||
+Admin`. The server had simply been trusting the client.
+
+Route changes, all applied to the frontend in the same pass:
+
+| Was | Now |
+|---|---|
+| `POST /api/maintenance/` (trailing slash load-bearing) | `POST /api/asset/maintenance` |
+| `GET /api/maintenance/all` | `GET /api/asset/maintenance/all` |
+| `GET /api/maintenance/maintenance-in-progress` | `GET /api/asset/maintenance/in-progress` |
+| `PATCH /api/maintenance/{id}/complete` | `PATCH /api/asset/maintenance/{id}/complete` |
+| `GET /api/maintenance/{platNomor}` | **removed** — duplicated `GET /api/asset/{platNomor}/maintenance` |
+
+This is a deliberate departure from "route paths still matter" at the top of
+this file: nothing is running, the frontend is the only caller, and the two
+repos ship together. The cost of this change only goes up from here.
 
 ### Error statuses are uniform
 
