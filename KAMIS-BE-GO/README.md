@@ -25,6 +25,7 @@ pkg/
 services/
   profile/    auth, accounts, clients, suppliers  (port 8080)
   asset/      vehicles, photos, maintenance, reservations (port 8081)
+  purchase/   procurement, staged assets, reporting (port 8084)
   resource/   inventory catalogue                 (port 8085)
   template/   copyable skeleton service (sample "Resource" domain)
     cmd/                       entrypoint (main.go)

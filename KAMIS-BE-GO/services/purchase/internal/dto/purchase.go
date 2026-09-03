@@ -160,3 +160,18 @@ type AddLapkeuRequest struct {
 	Description  string    `json:"description"`
 	PaymentDate  Timestamp `json:"paymentDate"`
 }
+
+// ActivityLineResponse is one point on the purchase-activity chart. Every period
+// in the requested window appears, with a zero count where nothing happened, so
+// the frontend can plot a continuous line.
+type ActivityLineResponse struct {
+	Period string `json:"period"`
+	Count  int64  `json:"count"`
+}
+
+// PurchaseSummaryResponse is the headline count for a period and how it moved
+// against the comparison period.
+type PurchaseSummaryResponse struct {
+	TotalPurchase    int     `json:"totalPurchase"`
+	PercentageChange float64 `json:"percentageChange"`
+}

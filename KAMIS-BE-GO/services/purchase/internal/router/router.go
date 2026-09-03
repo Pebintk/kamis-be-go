@@ -53,6 +53,13 @@ func New(v *auth.Verifier, allowedOrigins []string,
 		secured.PUT("/purchase/updatestatus/next/:idPurchase", read, purchases.AdvanceStatus)
 		secured.PUT("/purchase/updatestatus/cancel/:idPurchase", read, purchases.CancelStatus)
 		secured.PUT("/purchase/updatestatus/pembayaran/:idPurchase", read, purchases.ConfirmPayment)
+
+		// Reporting. The legacy config gave /chart/** to Operasional and Admin
+		// only, while /range and /summary fell through to every authenticated
+		// role — kept as-is.
+		secured.GET("/purchase/chart/purchase-activity", auth.GinRequireRole(writeRoles...), purchases.ActivityLine)
+		secured.GET("/purchase/range", read, purchases.ByRange)
+		secured.GET("/purchase/summary", read, purchases.Summary)
 	}
 
 	return r

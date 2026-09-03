@@ -34,7 +34,7 @@ before continuing — most of the guidance below would change.
 | asset | 8081 | **Ported.** Assets + photos (GCS via `pkg/blob`), maintenance scheduling with reservation-conflict checks, and project reservations. All 21 Java endpoints map 1:1. |
 | finance.report | 8082 | Not started. |
 | project | 8083 | Not started. |
-| purchase | 8084 | Not started. |
+| purchase | 8084 | **Ported.** Purchase requests with resource line items or a staged asset, the status workflow with its role rules, and the chart/range/summary reporting. All 15 Java endpoints map 1:1. |
 
 ## Locked decisions
 
@@ -68,8 +68,8 @@ Port one service at a time, copying `services/template`. When a service is
 ready, point the frontend's `VITE_API_*_URL` for that domain at it — there is no
 proxy layer and no coordination window, because nothing is serving traffic.
 
-Remaining, easiest first: `purchase`, then `project`, then `finance.report`.
-`profile`, `resource` and `asset` are done.
+Remaining: `project`, then `finance.report`. `profile`, `resource`, `asset` and
+`purchase` are done.
 
 `finance.report` is a leaf but goes **last**: it only *reads*, and everything it
 reads comes from `project` and `purchase`. Ported before them, its dashboard
@@ -358,6 +358,11 @@ operations, where `golang.org/x/oauth2` plus `net/http` adds two. Authentication
 is still Google's library, so on a GCE VM it reads the instance metadata server
 and there is no key file to deploy. `ValidKey` rejects path traversal at every
 backend method, and `ContentTypeFor` rejects non-images.
+
+**`httpx.Client.PostForm`** sends multipart/form-data — the stand-in for
+Spring's `BodyInserters.fromMultipartData`, used when purchase hands a completed
+asset purchase to the asset service. The body streams through an `io.Pipe`, so
+forwarding a 10MB photo costs a buffer rather than a copy of the image.
 
 **`pkg/apierr`** holds the two error types every service's handlers branch on:
 `Invalid` (400) and `NotFound` (404). Pair it with `httpx.RespondError`, which

@@ -220,3 +220,34 @@ func (h *PurchaseHandler) changeStatus(
 	}
 	httpx.Respond(c, http.StatusOK, message, purchase)
 }
+
+// ActivityLine handles GET /api/purchase/chart/purchase-activity.
+func (h *PurchaseHandler) ActivityLine(c *gin.Context) {
+	points, err := h.svc.ActivityLine(c.Request.Context(),
+		c.Query("periodType"), c.Query("range"), c.Query("statusFilter"))
+	if err != nil {
+		httpx.RespondError(c, err)
+		return
+	}
+	httpx.Respond(c, http.StatusOK, "OK", points)
+}
+
+// ByRange handles GET /api/purchase/range.
+func (h *PurchaseHandler) ByRange(c *gin.Context) {
+	purchases, err := h.svc.ListByRange(c.Request.Context(), c.Query("range"))
+	if err != nil {
+		httpx.RespondError(c, err)
+		return
+	}
+	httpx.Respond(c, http.StatusOK, "OK", purchases)
+}
+
+// Summary handles GET /api/purchase/summary.
+func (h *PurchaseHandler) Summary(c *gin.Context) {
+	summary, err := h.svc.SummaryByRange(c.Request.Context(), c.Query("range"))
+	if err != nil {
+		httpx.RespondError(c, err)
+		return
+	}
+	httpx.Respond(c, http.StatusOK, "OK", summary)
+}

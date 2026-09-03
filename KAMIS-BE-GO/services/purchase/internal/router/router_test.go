@@ -102,6 +102,9 @@ func TestTokenRequirement(t *testing.T) {
 		{http.MethodPut, "/api/purchase/updatestatus/next/R-030926-001"},
 		{http.MethodPut, "/api/purchase/updatestatus/cancel/R-030926-001"},
 		{http.MethodPut, "/api/purchase/updatestatus/pembayaran/R-030926-001"},
+		{http.MethodGet, "/api/purchase/chart/purchase-activity"},
+		{http.MethodGet, "/api/purchase/range"},
+		{http.MethodGet, "/api/purchase/summary"},
 	}
 
 	for _, tc := range cases {

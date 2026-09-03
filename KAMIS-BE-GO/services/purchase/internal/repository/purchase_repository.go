@@ -300,3 +300,84 @@ func (r *PurchaseRepository) FindAllAssetTemps(ctx context.Context) ([]model.Ass
 	err := r.db.WithContext(ctx).Order("id").Find(&out).Error
 	return out, err
 }
+
+// ---- reporting aggregations ----
+
+// PeriodCount is one row of a grouped count.
+type PeriodCount struct {
+	Period string
+	Count  int64
+}
+
+// DayCount is one row of a per-day grouped count, kept as a date so the caller
+// can bucket it into weeks.
+type DayCount struct {
+	Day   time.Time
+	Count int64
+}
+
+// StatusScope narrows an aggregation to, or away from, a set of statuses.
+type StatusScope struct {
+	Statuses []string
+	// Exclude counts everything *but* Statuses. The chart's "ALL" filter uses
+	// this to mean "all active purchases", excluding rejected and cancelled.
+	Exclude bool
+}
+
+func (r *PurchaseRepository) window(ctx context.Context, start, end time.Time, scope StatusScope) *gorm.DB {
+	q := r.db.WithContext(ctx).Model(&model.Purchase{}).
+		Where("purchase_submission_date >= ? AND purchase_submission_date <= ?", start, end)
+	if len(scope.Statuses) == 0 {
+		return q
+	}
+	if scope.Exclude {
+		return q.Where("purchase_status NOT IN ?", scope.Statuses)
+	}
+	return q.Where("purchase_status IN ?", scope.Statuses)
+}
+
+// countByExpr groups by a SQL expression over the submission date.
+func (r *PurchaseRepository) countByExpr(ctx context.Context, expr string, start, end time.Time, scope StatusScope) ([]PeriodCount, error) {
+	var out []PeriodCount
+	err := r.window(ctx, start, end, scope).
+		Select(expr + " AS period, COUNT(*) AS count").
+		Group(expr).Order("period").Scan(&out).Error
+	return out, err
+}
+
+// CountByMonth groups as yyyy-MM.
+func (r *PurchaseRepository) CountByMonth(ctx context.Context, start, end time.Time, scope StatusScope) ([]PeriodCount, error) {
+	return r.countByExpr(ctx, "to_char(purchase_submission_date, 'YYYY-MM')", start, end, scope)
+}
+
+// CountByQuarter groups as yyyy-Qn.
+func (r *PurchaseRepository) CountByQuarter(ctx context.Context, start, end time.Time, scope StatusScope) ([]PeriodCount, error) {
+	return r.countByExpr(ctx,
+		"to_char(purchase_submission_date, 'YYYY') || '-Q' || to_char(purchase_submission_date, 'Q')",
+		start, end, scope)
+}
+
+// CountByYear groups as yyyy.
+func (r *PurchaseRepository) CountByYear(ctx context.Context, start, end time.Time, scope StatusScope) ([]PeriodCount, error) {
+	return r.countByExpr(ctx, "to_char(purchase_submission_date, 'YYYY')", start, end, scope)
+}
+
+// CountByDay groups by calendar day, which the service then buckets into weeks.
+//
+// The legacy query grouped by the raw timestamp column, so every purchase landed
+// in its own group; the in-memory re-aggregation into weeks happened to hide it.
+// date_trunc groups by the day actually meant.
+func (r *PurchaseRepository) CountByDay(ctx context.Context, start, end time.Time, scope StatusScope) ([]DayCount, error) {
+	var out []DayCount
+	err := r.window(ctx, start, end, scope).
+		Select("date_trunc('day', purchase_submission_date) AS day, COUNT(*) AS count").
+		Group("date_trunc('day', purchase_submission_date)").Order("day").Scan(&out).Error
+	return out, err
+}
+
+// CountBetween counts every purchase submitted in a window, whatever its status.
+func (r *PurchaseRepository) CountBetween(ctx context.Context, start, end time.Time) (int64, error) {
+	var count int64
+	err := r.window(ctx, start, end, StatusScope{}).Count(&count).Error
+	return count, err
+}
