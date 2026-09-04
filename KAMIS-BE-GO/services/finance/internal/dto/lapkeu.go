@@ -46,3 +46,47 @@ type LapkeuPageResponse struct {
 	Summary LapkeuSummaryResponse `json:"summary"`
 	List    []LapkeuResponse      `json:"list"`
 }
+
+// ChartPengeluaranResponse is one slice of the expense breakdown.
+type ChartPengeluaranResponse struct {
+	ActivityType     string `json:"activityType"`
+	TotalPengeluaran int64  `json:"totalPengeluaran"`
+}
+
+// IncomeExpenseResponse is one point on the income-versus-outgoings chart. The
+// line and bar charts return the same shape, as they did in Java.
+type IncomeExpenseResponse struct {
+	Period           string `json:"period"`
+	TotalPemasukan   int64  `json:"totalPemasukan"`
+	TotalPengeluaran int64  `json:"totalPengeluaran"`
+}
+
+// FinancialSummaryResponse is the finance dashboard's headline panel.
+type FinancialSummaryResponse struct {
+	TotalIncome                 int64   `json:"totalIncome"`
+	TotalIncomeFromDistribusi   int64   `json:"totalIncomeFromDistribusi"`
+	TotalIncomeFromPenjualan    int64   `json:"totalIncomeFromPenjualan"`
+	TotalPurchase               int64   `json:"totalPurchase"`
+	TotalMaintenanceExpense     int64   `json:"totalMaintenanceExpense"`
+	TotalProjectExpense         int64   `json:"totalProjectExpense"`
+	TotalProfit                 int64   `json:"totalProfit"`
+	TotalTransactions           int     `json:"totalTransactions"`
+	TransactionPercentageChange float64 `json:"transactionPercentageChange"`
+	ProfitPercentageChange      float64 `json:"profitPercentageChange"`
+}
+
+// ActivityLine is one point of another service's activity chart, as this
+// service reads it back.
+type ActivityLine struct {
+	Period string `json:"period"`
+	Count  int64  `json:"count"`
+}
+
+// ActivityComparisonResponse is one period of the operational chart, with the
+// three activity streams side by side.
+type ActivityComparisonResponse struct {
+	Period          string `json:"period"`
+	PembelianCount  int64  `json:"pembelianCount"`
+	PenjualanCount  int64  `json:"penjualanCount"`
+	DistribusiCount int64  `json:"distribusiCount"`
+}

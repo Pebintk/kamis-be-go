@@ -91,6 +91,11 @@ func TestLedgerRequiresAToken(t *testing.T) {
 		{http.MethodGet, "/api/lapkeu/page"},
 		{http.MethodPost, "/api/lapkeu/add"},
 		{http.MethodDelete, "/api/lapkeu/P001260903"},
+		{http.MethodGet, "/api/lapkeu/chart-pengeluaran"},
+		{http.MethodGet, "/api/lapkeu/chart-pemasukan-pengeluaran"},
+		{http.MethodGet, "/api/lapkeu/chart-total-pemasukan-pengeluaran"},
+		{http.MethodGet, "/api/finance-report/summary"},
+		{http.MethodGet, "/api/operational-report/activity-chart"},
 	}
 
 	for _, tc := range cases {
@@ -119,6 +124,11 @@ func TestLedgerRoles(t *testing.T) {
 		// triggered the flow, and Operasional completes purchases and projects.
 		{http.MethodPost, "/api/lapkeu/add", []string{"Admin", "Finance", "Direksi", "Operasional"}},
 		{http.MethodDelete, "/api/lapkeu/P001260903", []string{"Finance", "Admin"}},
+		{http.MethodGet, "/api/lapkeu/chart-pengeluaran", []string{"Admin", "Finance", "Direksi"}},
+		{http.MethodGet, "/api/finance-report/summary", []string{"Admin", "Finance", "Direksi"}},
+		// The operational dashboard reads this one, so Operasional is included.
+		{http.MethodGet, "/api/operational-report/activity-chart",
+			[]string{"Admin", "Finance", "Direksi", "Operasional"}},
 	}
 
 	for _, tc := range cases {

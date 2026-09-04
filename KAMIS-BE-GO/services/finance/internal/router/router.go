@@ -42,6 +42,17 @@ func New(v *auth.Verifier, allowedOrigins []string, lapkeu *handler.LapkeuHandle
 		// Only Finance refunds a project, which is the one flow that deletes an
 		// entry.
 		secured.DELETE("/lapkeu/:id", auth.GinRequireRole("Finance", "Admin"), lapkeu.Delete)
+
+		secured.GET("/lapkeu/chart-pengeluaran", read, lapkeu.ExpenseChart)
+		secured.GET("/lapkeu/chart-pemasukan-pengeluaran", read, lapkeu.IncomeExpenseChart)
+		secured.GET("/lapkeu/chart-total-pemasukan-pengeluaran", read, lapkeu.IncomeExpenseTotals)
+
+		// The legacy config named /api/finance-report/** explicitly; the
+		// operational report fell through to .anyRequest().authenticated(),
+		// which its own dashboard needs — Operasional reads it.
+		secured.GET("/finance-report/summary", read, lapkeu.FinancialSummary)
+		secured.GET("/operational-report/activity-chart",
+			auth.GinRequireRole("Admin", "Finance", "Direksi", "Operasional"), lapkeu.ActivityChart)
 	}
 
 	return r

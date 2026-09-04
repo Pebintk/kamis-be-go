@@ -32,7 +32,7 @@ before continuing — most of the guidance below would change.
 | profile | 8080 | **Ported.** Slice 1: auth + account core (login, JWT issuance, add/list/paginate/update accounts, admin seeding). Slice 2: Client CRUD. Slice 3: Supplier CRUD, including the cross-service calls to project/resource/asset/purchase. |
 | resource | 8085 | **Ported.** The full inventory catalogue: CRUD, the paginated/name-filtered list, the locked stock adjustments, the low-stock report, and the supplier-link endpoints profile calls. All 12 Java endpoints map 1:1. |
 | asset | 8081 | **Ported.** Assets + photos (GCS via `pkg/blob`), maintenance scheduling with reservation-conflict checks, and project reservations. All 21 Java endpoints map 1:1. |
-| finance.report | 8082 | Not started. |
+| finance.report | 8082 | **Ported** as `services/finance` (the dot does not belong in a Go import path). The ledger every other service pushes to, plus the dashboard charts and summaries. All 10 Java endpoints map 1:1. |
 | project | 8083 | **Ported.** Sales and distributions, the status and payment workflow, and the activity charts. All 11 Java endpoints map 1:1. |
 | purchase | 8084 | **Ported.** Purchase requests with resource line items or a staged asset, the status workflow with its role rules, and the chart/range/summary reporting. All 15 Java endpoints map 1:1. |
 
@@ -68,7 +68,9 @@ Port one service at a time, copying `services/template`. When a service is
 ready, point the frontend's `VITE_API_*_URL` for that domain at it — there is no
 proxy layer and no coordination window, because nothing is serving traffic.
 
-Remaining: `finance.report`. Everything else is done.
+**All six services are ported.** What remains is the deferred work below —
+principally replacing `AutoMigrate` with real migrations before this holds data
+worth keeping.
 
 `finance.report` is a leaf but goes **last**: it only *reads*, and everything it
 reads comes from `project` and `purchase`. Ported before them, its dashboard
@@ -211,6 +213,33 @@ Java modelled roles with JPA JOINED inheritance: an `end_user` table plus
 discriminator. The Go port collapses that to a **single `end_users` table with a
 `user_type` column**. `user_type` keeps the UPPERCASE values because the role
 casing map (above) is built around them.
+
+### Fixed: the entire financial ledger had no auth
+
+The finance service's `WebSecurityConfig` declared:
+
+```java
+.requestMatchers("/api/lapkeu/**").permitAll()
+```
+
+so every route of the financial ledger — read, write and **delete** — was
+reachable without a token. `GET /api/lapkeu/all` returned every financial record
+to anyone who could reach the service, and `DELETE /api/lapkeu/{id}` removed
+entries the same way.
+
+It was load-bearing, which is why it survived: `asset`, `purchase` and `project`
+all POST to `/lapkeu/add` **without a bearer token**, unlike every other
+inter-service call in the codebase, and `permitAll` was what made those work.
+
+The Go port had already solved that half by accident: those three services call
+finance through `httpx.Client`, which forwards the caller's token, so the ledger
+now records who triggered each entry. Roles follow the two dashboards that
+consume the data — reads are Admin, Finance and Direksi, matching the existing
+`/api/finance-report/**` rule; Operasional is deliberately excluded. Writes admit
+all four, since they arrive from another service carrying the token of whoever
+triggered the flow and Operasional completes purchases and projects. Deletes are
+Finance and Admin, because only a Finance refund removes an entry.
+`TestLedgerRequiresAToken` is the regression guard.
 
 ### Fixed: three /api/client routes had no auth
 

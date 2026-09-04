@@ -26,6 +26,7 @@ pkg/
 services/
   profile/    auth, accounts, clients, suppliers  (port 8080)
   asset/      vehicles, photos, maintenance, reservations (port 8081)
+  finance/    the ledger and the dashboards       (port 8082)
   project/    sales and distributions             (port 8083)
   purchase/   procurement, staged assets, reporting (port 8084)
   resource/   inventory catalogue                 (port 8085)

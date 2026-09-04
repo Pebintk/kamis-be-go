@@ -137,3 +137,60 @@ func queryDate(c *gin.Context, name string) (*time.Time, error) {
 	}
 	return &v, nil
 }
+
+// ExpenseChart handles GET /api/lapkeu/chart-pengeluaran.
+func (h *LapkeuHandler) ExpenseChart(c *gin.Context) {
+	rows, err := h.svc.ExpenseChart(c.Request.Context(), c.DefaultQuery("range", "THIS_YEAR"))
+	if err != nil {
+		httpx.RespondError(c, err)
+		return
+	}
+	httpx.Respond(c, http.StatusOK, "Data chart pengeluaran berhasil diambil", rows)
+}
+
+// IncomeExpenseChart handles GET /api/lapkeu/chart-pemasukan-pengeluaran.
+func (h *LapkeuHandler) IncomeExpenseChart(c *gin.Context) {
+	rows, err := h.svc.IncomeExpenseChart(c.Request.Context(),
+		c.Query("periodType"), c.DefaultQuery("range", "THIS_YEAR"))
+	if err != nil {
+		httpx.RespondError(c, err)
+		return
+	}
+	httpx.Respond(c, http.StatusOK, "Data chart pemasukan dan pengeluaran berhasil diambil", rows)
+}
+
+// IncomeExpenseTotals handles GET /api/lapkeu/chart-total-pemasukan-pengeluaran,
+// which is the same series with a trailing "Total" bar.
+func (h *LapkeuHandler) IncomeExpenseTotals(c *gin.Context) {
+	rows, err := h.svc.IncomeExpenseTotals(c.Request.Context(),
+		c.Query("periodType"), c.DefaultQuery("range", "THIS_YEAR"))
+	if err != nil {
+		httpx.RespondError(c, err)
+		return
+	}
+	httpx.Respond(c, http.StatusOK, "Data total pemasukan dan pengeluaran berhasil diambil", rows)
+}
+
+// FinancialSummary handles GET /api/finance-report/summary.
+func (h *LapkeuHandler) FinancialSummary(c *gin.Context) {
+	summary, err := h.svc.FinancialSummary(c.Request.Context(), c.DefaultQuery("range", "THIS_YEAR"))
+	if err != nil {
+		httpx.RespondError(c, err)
+		return
+	}
+	httpx.Respond(c, http.StatusOK, "Ringkasan keuangan berhasil diambil", summary)
+}
+
+// ActivityChart handles GET /api/operational-report/activity-chart, combining
+// the purchase and project activity streams.
+func (h *LapkeuHandler) ActivityChart(c *gin.Context) {
+	rows, err := h.svc.CombinedActivityChart(c.Request.Context(),
+		c.DefaultQuery("range", "THIS_YEAR"),
+		c.Query("periodType"),
+		c.DefaultQuery("status", "ALL"))
+	if err != nil {
+		httpx.RespondError(c, err)
+		return
+	}
+	httpx.Respond(c, http.StatusOK, "Data aktivitas operasional berhasil diambil", rows)
+}
