@@ -12,7 +12,7 @@ import (
 	"github.com/karina/kamis-be-go/pkg/database"
 	"github.com/karina/kamis-be-go/pkg/httpx"
 	"github.com/karina/kamis-be-go/services/template/internal/handler"
-	"github.com/karina/kamis-be-go/services/template/internal/model"
+	"github.com/karina/kamis-be-go/services/template/internal/migrations"
 	"github.com/karina/kamis-be-go/services/template/internal/repository"
 	"github.com/karina/kamis-be-go/services/template/internal/router"
 	"github.com/karina/kamis-be-go/services/template/internal/service"
@@ -31,9 +31,10 @@ func main() {
 		fail("database", err)
 	}
 
-	// AutoMigrate parallels the legacy Hibernate `ddl-auto: update`. Swap for
-	// goose/golang-migrate once you want explicit, reviewed schema changes.
-	if err := db.AutoMigrate(&model.Resource{}); err != nil {
+	// Schema comes from the SQL files in internal/migrations, embedded in the
+	// binary. Add a numbered file there for each change; database.Migrate
+	// applies whatever is pending at start.
+	if err := database.Migrate(db, migrations.FS); err != nil {
 		fail("migrate", err)
 	}
 

@@ -33,6 +33,7 @@ services/
   template/   copyable skeleton service (sample "Resource" domain)
     cmd/                       entrypoint (main.go)
     internal/
+      migrations/              schema history, embedded .sql files
       model/                   GORM entities      (≈ JPA @Entity / model)
       repository/              data access         (≈ Spring Data repository)
       service/                 business logic      (≈ @Service / restservice)
@@ -65,7 +66,8 @@ curl localhost:8085/health
 ## Add a new service
 
 1. `cp -r services/template services/<name>` and rename the package paths.
-2. Replace the sample `Resource` domain with the real entities.
+2. Replace the sample `Resource` domain with the real entities, and replace
+   `internal/migrations/00001_baseline.sql` with your own baseline.
 3. Update routes + role guards in `internal/router/router.go` to match the
    service's `WebSecurityConfig` rules.
 4. Only `profile` additionally constructs `auth.NewIssuer(...)` and exposes a
@@ -74,8 +76,10 @@ curl localhost:8085/health
 ## Notes
 
 - `DATABASE_URL` is a Go/pgx DSN (`postgres://...`), **not** a JDBC URL.
-- `AutoMigrate` stands in for Hibernate `ddl-auto: update` during the migration;
-  move to `goose`/`golang-migrate` for production-grade schema control.
+- Schema is owned by **goose**: plain SQL under each service's
+  `internal/migrations`, embedded in the binary and applied at start by
+  `database.Migrate`. Add the next numbered file to change a schema; never edit
+  one that has shipped.
 - Build images from the repo root: `docker build -f services/<name>/Dockerfile
   --build-arg SERVICE=<name> .`
 - Services serve through `httpx.Serve`, which applies HTTP timeouts and drains

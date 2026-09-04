@@ -14,7 +14,7 @@ import (
 	"github.com/karina/kamis-be-go/pkg/database"
 	"github.com/karina/kamis-be-go/pkg/httpx"
 	"github.com/karina/kamis-be-go/services/purchase/internal/handler"
-	"github.com/karina/kamis-be-go/services/purchase/internal/model"
+	"github.com/karina/kamis-be-go/services/purchase/internal/migrations"
 	"github.com/karina/kamis-be-go/services/purchase/internal/repository"
 	"github.com/karina/kamis-be-go/services/purchase/internal/router"
 	"github.com/karina/kamis-be-go/services/purchase/internal/service"
@@ -32,12 +32,7 @@ func main() {
 	if err != nil {
 		fail("database", err)
 	}
-	if err := db.AutoMigrate(
-		&model.Purchase{},
-		&model.ResourceTemp{},
-		&model.AssetTemp{},
-		&model.LogPurchase{},
-	); err != nil {
+	if err := database.Migrate(db, migrations.FS); err != nil {
 		fail("migrate", err)
 	}
 
