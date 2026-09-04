@@ -30,6 +30,12 @@ func New(v *auth.Verifier, allowedOrigins []string, projects *handler.ProjectHan
 
 		secured.GET("/project/all", read, projects.All)
 		secured.GET("/project/all/paginated", read, projects.Paginated)
+		// Editing admits Direksi alongside Operasional; advancing the status is
+		// Operasional's alone, and confirming payment is Finance's.
+		secured.PUT("/project/update/:id", auth.GinRequireRole("Operasional", "Direksi"), projects.Update)
+		secured.PUT("/project/update-status/:id", auth.GinRequireRole("Operasional"), projects.UpdateStatus)
+		secured.PUT("/project/update-payment/:id", auth.GinRequireRole("Finance"), projects.UpdatePayment)
+
 		secured.GET("/project/:id", read, projects.Detail)
 	}
 

@@ -100,6 +100,11 @@ func (c *Client) Post(ctx context.Context, path string, body any) error {
 	return c.do(ctx, http.MethodPost, path, body, nil)
 }
 
+// Delete removes a downstream resource and ignores the response payload.
+func (c *Client) Delete(ctx context.Context, path string) error {
+	return c.do(ctx, http.MethodDelete, path, nil, nil)
+}
+
 // PostData issues a POST with a JSON body and returns the `data` field of the
 // BaseResponseDTO envelope — for the endpoints that answer a question rather
 // than just accepting a write.

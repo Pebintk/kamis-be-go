@@ -168,3 +168,50 @@ func queryDate(c *gin.Context, name string) (*time.Time, error) {
 func badQuery(name, value, want string) error {
 	return apierr.Invalidf("Parameter %s tidak valid (%q): harus berupa %s", name, value, want)
 }
+
+// Update handles PUT /api/project/update/{id}.
+func (h *ProjectHandler) Update(c *gin.Context) {
+	var req dto.UpdateProjectRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httpx.Respond(c, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+	// The path is authoritative; the legacy DTO also carries an id, which the
+	// frontend fills in, but a mismatch should not silently edit another project.
+	project, err := h.svc.UpdateProject(c.Request.Context(), c.Param("id"), req)
+	if err != nil {
+		httpx.RespondError(c, err)
+		return
+	}
+	httpx.Respond(c, http.StatusOK, "Proyek berhasil diperbarui", project)
+}
+
+// UpdateStatus handles PUT /api/project/update-status/{id}.
+func (h *ProjectHandler) UpdateStatus(c *gin.Context) {
+	var req dto.UpdateStatusRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httpx.Respond(c, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+	project, err := h.svc.UpdateStatus(c.Request.Context(), c.Param("id"), *req.ProjectStatus)
+	if err != nil {
+		httpx.RespondError(c, err)
+		return
+	}
+	httpx.Respond(c, http.StatusOK, "Status proyek berhasil diperbarui", project)
+}
+
+// UpdatePayment handles PUT /api/project/update-payment/{id}.
+func (h *ProjectHandler) UpdatePayment(c *gin.Context) {
+	var req dto.UpdatePaymentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httpx.Respond(c, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+	project, err := h.svc.UpdatePayment(c.Request.Context(), c.Param("id"), *req.ProjectPaymentStatus)
+	if err != nil {
+		httpx.RespondError(c, err)
+		return
+	}
+	httpx.Respond(c, http.StatusOK, "Status pembayaran proyek berhasil diperbarui", project)
+}

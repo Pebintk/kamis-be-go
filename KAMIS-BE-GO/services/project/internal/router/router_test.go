@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -87,6 +88,9 @@ func TestTokenRequirement(t *testing.T) {
 		{http.MethodGet, "/api/project/all"},
 		{http.MethodGet, "/api/project/all/paginated"},
 		{http.MethodGet, "/api/project/D001260903"},
+		{http.MethodPut, "/api/project/update/D001260903"},
+		{http.MethodPut, "/api/project/update-status/D001260903"},
+		{http.MethodPut, "/api/project/update-payment/D001260903"},
 	}
 	for _, tc := range cases {
 		res := httptest.NewRecorder()
@@ -150,5 +154,44 @@ func TestHealthIsPublic(t *testing.T) {
 	newTestEngine(t).ServeHTTP(res, httptest.NewRequest(http.MethodGet, "/health", nil))
 	if res.Code != http.StatusOK {
 		t.Errorf("GET /health = %d, want 200", res.Code)
+	}
+}
+
+// TestWriteRolesAreDistinct pins the three different write rules this service
+// has, which no other service in the port splits this finely.
+func TestWriteRolesAreDistinct(t *testing.T) {
+	engine := newTestEngine(t)
+
+	cases := []struct {
+		path    string
+		allowed []string
+	}{
+		{"/api/project/update/D001260903", []string{"Operasional", "Direksi"}},
+		{"/api/project/update-status/D001260903", []string{"Operasional"}},
+		{"/api/project/update-payment/D001260903", []string{"Finance"}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.path, func(t *testing.T) {
+			for _, role := range []string{"Admin", "Direksi", "Finance", "Operasional"} {
+				res := httptest.NewRecorder()
+				req := httptest.NewRequest(http.MethodPut, tc.path, nil)
+				req.Header.Set("Authorization", "Bearer "+signedToken(t, role))
+				func() {
+					// An allowed role reaches the nil handler and panics, which
+					// is the proof the guard let it through.
+					defer func() { _ = recover() }()
+					engine.ServeHTTP(res, req)
+				}()
+
+				permitted := slices.Contains(tc.allowed, role)
+				if permitted && res.Code == http.StatusForbidden {
+					t.Errorf("%s as %s: got 403, want allowed", tc.path, role)
+				}
+				if !permitted && res.Code != http.StatusForbidden {
+					t.Errorf("%s as %s: got %d, want 403", tc.path, role, res.Code)
+				}
+			}
+		})
 	}
 }

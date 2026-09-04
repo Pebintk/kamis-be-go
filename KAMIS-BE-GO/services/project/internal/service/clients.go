@@ -61,6 +61,12 @@ func (s *ProjectService) reserve(ctx context.Context, platNomors []string, proje
 	})
 }
 
+// setReservationStatus moves every booking a project holds, which is how a
+// project finishing or being cancelled releases its vehicles.
+func (s *ProjectService) setReservationStatus(ctx context.Context, projectID, status string) error {
+	return s.Asset.Put(ctx, "/asset/reservations/project/"+projectID+"/status?status="+status, nil)
+}
+
 // adjustStock moves a catalogue item's stock. delta is positive to return stock
 // and negative to consume it.
 func (s *ProjectService) adjustStock(ctx context.Context, resourceID string, delta int) error {

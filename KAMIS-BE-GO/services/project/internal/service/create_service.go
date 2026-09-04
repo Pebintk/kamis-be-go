@@ -132,6 +132,12 @@ type planInput struct {
 	totalPemasukkan  *int64
 	start, end       time.Time
 	excludeProjectID string
+
+	// heldStock is how much of each catalogue item this project already
+	// consumes, on an edit. Stock it is about to give back counts towards what
+	// it can take, so raising a line from 10 to 12 needs 2 more units free, not
+	// 12.
+	heldStock map[string]int
 }
 
 // planUsage validates the requested vehicles or catalogue items and works out
@@ -213,9 +219,10 @@ func (s *ProjectService) planSale(ctx context.Context, in planInput) (plan, erro
 		// Checked before anything is consumed, so a sale that cannot be filled
 		// fails without having drawn down the items ahead of it. Java found out
 		// only when the resource service refused a deduction, halfway through.
-		if item.ResourceStock < *usage.ResourceStockUsed {
+		available := item.ResourceStock + in.heldStock[usage.ResourceID]
+		if available < *usage.ResourceStockUsed {
 			return out, apierr.Invalidf("Stok %s tidak mencukupi. Tersedia: %d, diminta: %d",
-				item.ResourceName, item.ResourceStock, *usage.ResourceStockUsed)
+				item.ResourceName, available, *usage.ResourceStockUsed)
 		}
 
 		out.resources = append(out.resources, model.ProjectResourceUsage{
