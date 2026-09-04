@@ -33,7 +33,7 @@ before continuing — most of the guidance below would change.
 | resource | 8085 | **Ported.** The full inventory catalogue: CRUD, the paginated/name-filtered list, the locked stock adjustments, the low-stock report, and the supplier-link endpoints profile calls. All 12 Java endpoints map 1:1. |
 | asset | 8081 | **Ported.** Assets + photos (GCS via `pkg/blob`), maintenance scheduling with reservation-conflict checks, and project reservations. All 21 Java endpoints map 1:1. |
 | finance.report | 8082 | Not started. |
-| project | 8083 | Not started. |
+| project | 8083 | **Ported.** Sales and distributions, the status and payment workflow, and the activity charts. All 11 Java endpoints map 1:1. |
 | purchase | 8084 | **Ported.** Purchase requests with resource line items or a staged asset, the status workflow with its role rules, and the chart/range/summary reporting. All 15 Java endpoints map 1:1. |
 
 ## Locked decisions
@@ -68,8 +68,7 @@ Port one service at a time, copying `services/template`. When a service is
 ready, point the frontend's `VITE_API_*_URL` for that domain at it — there is no
 proxy layer and no coordination window, because nothing is serving traffic.
 
-Remaining: `project`, then `finance.report`. `profile`, `resource`, `asset` and
-`purchase` are done.
+Remaining: `finance.report`. Everything else is done.
 
 `finance.report` is a leaf but goes **last**: it only *reads*, and everything it
 reads comes from `project` and `purchase`. Ported before them, its dashboard
@@ -316,7 +315,7 @@ the message so callers can tell a 404 apart from a 500.
 
 ## Notes for the next port
 
-Nine shared pieces exist now; use them rather than reinventing per service.
+Ten shared pieces exist now; use them rather than reinventing per service.
 
 **`httpx.Serve(engine, port)`** replaces gin's `Engine.Run`. It sets read/write/
 idle timeouts (a bare `http.Server` has none, so one slow client can hold a
@@ -358,6 +357,13 @@ operations, where `golang.org/x/oauth2` plus `net/http` adds two. Authentication
 is still Google's library, so on a GCE VM it reads the instance metadata server
 and there is no key file to deploy. `ValidKey` rejects path traversal at every
 backend method, and `ContentTypeFor` rejects non-images.
+
+**`pkg/reporting`** holds the calendar arithmetic behind every activity chart
+and period summary: what window a named range covers, which granularities that
+range can be charted at, and the ordered period labels to plot. It carries no
+I/O and no domain knowledge — the caller supplies the counts. purchase and
+project chart different things over identical periods, and finance.report will
+make a third.
 
 **`httpx.Client.PostForm`** sends multipart/form-data — the stand-in for
 Spring's `BodyInserters.fromMultipartData`, used when purchase hands a completed

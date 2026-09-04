@@ -13,6 +13,7 @@ import (
 	"github.com/karina/kamis-be-go/pkg/apierr"
 	"github.com/karina/kamis-be-go/pkg/httpx"
 	"github.com/karina/kamis-be-go/services/project/internal/dto"
+	"github.com/karina/kamis-be-go/services/project/internal/model"
 	"github.com/karina/kamis-be-go/services/project/internal/repository"
 	"github.com/karina/kamis-be-go/services/project/internal/service"
 )
@@ -214,4 +215,49 @@ func (h *ProjectHandler) UpdatePayment(c *gin.Context) {
 		return
 	}
 	httpx.Respond(c, http.StatusOK, "Status pembayaran proyek berhasil diperbarui", project)
+}
+
+// PenjualanActivity handles GET /api/project/chart/penjualan-activity.
+func (h *ProjectHandler) PenjualanActivity(c *gin.Context) {
+	h.activity(c, model.TypePenjualan)
+}
+
+// DistribusiActivity handles GET /api/project/chart/distribusi-activity.
+func (h *ProjectHandler) DistribusiActivity(c *gin.Context) {
+	h.activity(c, model.TypePengiriman)
+}
+
+// activity is the shared body of the two charts, which differ only in the kind
+// of project they count.
+func (h *ProjectHandler) activity(c *gin.Context, projectType bool) {
+	points, err := h.svc.ActivityLine(c.Request.Context(),
+		c.Query("periodType"),
+		c.DefaultQuery("range", "THIS_YEAR"),
+		c.DefaultQuery("status", "ALL"),
+		projectType)
+	if err != nil {
+		httpx.RespondError(c, err)
+		return
+	}
+	httpx.Respond(c, http.StatusOK, "OK", points)
+}
+
+// Summary handles GET /api/project/summary.
+func (h *ProjectHandler) Summary(c *gin.Context) {
+	summary, err := h.svc.SummaryByRange(c.Request.Context(), c.DefaultQuery("range", "THIS_YEAR"))
+	if err != nil {
+		httpx.RespondError(c, err)
+		return
+	}
+	httpx.Respond(c, http.StatusOK, "OK", summary)
+}
+
+// ByRange handles GET /api/project/range.
+func (h *ProjectHandler) ByRange(c *gin.Context) {
+	projects, err := h.svc.ListByRange(c.Request.Context(), c.DefaultQuery("range", "THIS_YEAR"))
+	if err != nil {
+		httpx.RespondError(c, err)
+		return
+	}
+	httpx.Respond(c, http.StatusOK, "OK", projects)
 }

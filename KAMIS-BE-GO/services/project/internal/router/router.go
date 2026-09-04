@@ -36,6 +36,14 @@ func New(v *auth.Verifier, allowedOrigins []string, projects *handler.ProjectHan
 		secured.PUT("/project/update-status/:id", auth.GinRequireRole("Operasional"), projects.UpdateStatus)
 		secured.PUT("/project/update-payment/:id", auth.GinRequireRole("Finance"), projects.UpdatePayment)
 
+		// The charts are Operasional's; the summary and range list fall under
+		// the /api/project/** catch-all.
+		chart := auth.GinRequireRole("Operasional")
+		secured.GET("/project/chart/penjualan-activity", chart, projects.PenjualanActivity)
+		secured.GET("/project/chart/distribusi-activity", chart, projects.DistribusiActivity)
+		secured.GET("/project/summary", read, projects.Summary)
+		secured.GET("/project/range", read, projects.ByRange)
+
 		secured.GET("/project/:id", read, projects.Detail)
 	}
 

@@ -301,3 +301,88 @@ func (r *ProjectRepository) Delete(ctx context.Context, projectID string) error 
 		return tx.Where("id = ?", projectID).Delete(&model.Project{}).Error
 	}))
 }
+
+// ---- reporting aggregations ----
+//
+// Every chart and summary counts by createdDate — when the project was recorded
+// — not by when it runs, which is what the legacy queries grouped on.
+
+// PeriodCount is one row of a grouped count.
+type PeriodCount struct {
+	Period string
+	Count  int64
+}
+
+// DayCount is one row of a per-day grouped count, kept as a date so the caller
+// can bucket it into weeks.
+type DayCount struct {
+	Day   time.Time
+	Count int64
+}
+
+// StatusScope narrows an aggregation to, or away from, a set of statuses.
+type StatusScope struct {
+	Statuses []int
+	// Exclude counts everything *but* Statuses — the chart's "ALL" filter uses
+	// this to mean "every project that was not cancelled".
+	Exclude bool
+}
+
+func (r *ProjectRepository) window(ctx context.Context, start, end time.Time, projectType bool, scope StatusScope) *gorm.DB {
+	q := r.db.WithContext(ctx).Model(&model.Project{}).
+		Where("created_date >= ? AND created_date <= ?", start, end).
+		Where("project_type = ?", projectType)
+
+	if len(scope.Statuses) == 0 {
+		return q
+	}
+	if scope.Exclude {
+		return q.Where("project_status NOT IN ?", scope.Statuses)
+	}
+	return q.Where("project_status IN ?", scope.Statuses)
+}
+
+func (r *ProjectRepository) countByExpr(ctx context.Context, expr string, start, end time.Time, projectType bool, scope StatusScope) ([]PeriodCount, error) {
+	var out []PeriodCount
+	err := r.window(ctx, start, end, projectType, scope).
+		Select(expr + " AS period, COUNT(*) AS count").
+		Group(expr).Order("period").Scan(&out).Error
+	return out, err
+}
+
+// CountByMonth groups as yyyy-MM.
+func (r *ProjectRepository) CountByMonth(ctx context.Context, start, end time.Time, projectType bool, scope StatusScope) ([]PeriodCount, error) {
+	return r.countByExpr(ctx, "to_char(created_date, 'YYYY-MM')", start, end, projectType, scope)
+}
+
+// CountByQuarter groups as yyyy-Qn.
+func (r *ProjectRepository) CountByQuarter(ctx context.Context, start, end time.Time, projectType bool, scope StatusScope) ([]PeriodCount, error) {
+	return r.countByExpr(ctx,
+		"to_char(created_date, 'YYYY') || '-Q' || to_char(created_date, 'Q')",
+		start, end, projectType, scope)
+}
+
+// CountByYear groups as yyyy.
+func (r *ProjectRepository) CountByYear(ctx context.Context, start, end time.Time, projectType bool, scope StatusScope) ([]PeriodCount, error) {
+	return r.countByExpr(ctx, "to_char(created_date, 'YYYY')", start, end, projectType, scope)
+}
+
+// CountByDay groups by calendar day, which the service then buckets into weeks.
+//
+// The legacy query grouped by the raw timestamp column, so every project landed
+// in its own group; the in-memory re-aggregation into weeks happened to hide it.
+func (r *ProjectRepository) CountByDay(ctx context.Context, start, end time.Time, projectType bool, scope StatusScope) ([]DayCount, error) {
+	var out []DayCount
+	err := r.window(ctx, start, end, projectType, scope).
+		Select("date_trunc('day', created_date) AS day, COUNT(*) AS count").
+		Group("date_trunc('day', created_date)").Order("day").Scan(&out).Error
+	return out, err
+}
+
+// CountByType counts the projects of one kind recorded in a window, whatever
+// their status.
+func (r *ProjectRepository) CountByType(ctx context.Context, start, end time.Time, projectType bool) (int64, error) {
+	var count int64
+	err := r.window(ctx, start, end, projectType, StatusScope{}).Count(&count).Error
+	return count, err
+}

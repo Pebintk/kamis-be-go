@@ -234,3 +234,20 @@ type AddLapkeuRequest struct {
 	Description  string    `json:"description"`
 	PaymentDate  Timestamp `json:"paymentDate"`
 }
+
+// ActivityLineResponse is one point on an activity chart. Every period in the
+// requested window appears, with a zero count where nothing happened, so the
+// frontend can plot a continuous line.
+type ActivityLineResponse struct {
+	Period string `json:"period"`
+	Count  int64  `json:"count"`
+}
+
+// SellDistributionSummaryResponse is the headline count of each kind of project
+// for a period, and how each moved against the comparison period.
+type SellDistributionSummaryResponse struct {
+	TotalSell                    int64   `json:"totalSell"`
+	PercentageSellChange         float64 `json:"percentageSellChange"`
+	TotalDistribution            int64   `json:"totalDistribution"`
+	PercentageDistributionChange float64 `json:"percentageDistributionChange"`
+}

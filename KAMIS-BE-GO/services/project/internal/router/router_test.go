@@ -91,6 +91,10 @@ func TestTokenRequirement(t *testing.T) {
 		{http.MethodPut, "/api/project/update/D001260903"},
 		{http.MethodPut, "/api/project/update-status/D001260903"},
 		{http.MethodPut, "/api/project/update-payment/D001260903"},
+		{http.MethodGet, "/api/project/chart/penjualan-activity"},
+		{http.MethodGet, "/api/project/chart/distribusi-activity"},
+		{http.MethodGet, "/api/project/summary"},
+		{http.MethodGet, "/api/project/range"},
 	}
 	for _, tc := range cases {
 		res := httptest.NewRecorder()

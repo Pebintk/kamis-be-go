@@ -22,9 +22,11 @@ pkg/
   httpx/      response envelope, CORS, logging, HTTP server, service-to-service client
   jsontime/   Jackson-compatible date rendering
   page/       the Spring Data Page JSON shape the frontend consumes
+  reporting/  chart ranges, period labels and summary windows
 services/
   profile/    auth, accounts, clients, suppliers  (port 8080)
   asset/      vehicles, photos, maintenance, reservations (port 8081)
+  project/    sales and distributions             (port 8083)
   purchase/   procurement, staged assets, reporting (port 8084)
   resource/   inventory catalogue                 (port 8085)
   template/   copyable skeleton service (sample "Resource" domain)
