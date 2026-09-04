@@ -100,6 +100,20 @@ func (c *Client) Post(ctx context.Context, path string, body any) error {
 	return c.do(ctx, http.MethodPost, path, body, nil)
 }
 
+// PostData issues a POST with a JSON body and returns the `data` field of the
+// BaseResponseDTO envelope — for the endpoints that answer a question rather
+// than just accepting a write.
+//
+// Like GetData it is a package-level function rather than a method, because Go
+// does not allow type parameters on methods.
+func PostData[T any](ctx context.Context, c *Client, path string, body any) (T, error) {
+	var envelope struct {
+		Data T `json:"data"`
+	}
+	err := c.do(ctx, http.MethodPost, path, body, &envelope)
+	return envelope.Data, err
+}
+
 // GetData issues a GET and returns the `data` field of the BaseResponseDTO
 // envelope the KAMIS services wrap every response in.
 //
