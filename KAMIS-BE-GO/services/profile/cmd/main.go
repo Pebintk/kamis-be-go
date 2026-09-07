@@ -45,7 +45,8 @@ func main() {
 	}
 
 	userRepo := repository.NewUserRepository(db)
-	svc := service.NewUserService(userRepo, issuer)
+	tokenRepo := repository.NewRefreshTokenRepository(db)
+	svc := service.NewUserService(userRepo, tokenRepo, issuer, cfg.RefreshExpiration)
 
 	// Clients for the services the client/supplier flows call out to, standing
 	// in for the Java WebClient instances.

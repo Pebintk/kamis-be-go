@@ -75,6 +75,8 @@ func TestRoutesRegister(t *testing.T) {
 
 	want := map[string]string{
 		"POST /api/auth/login":                 "",
+		"POST /api/auth/refresh":               "",
+		"POST /api/auth/logout":                "",
 		"POST /api/profile/add":                "",
 		"GET /api/profile/all":                 "",
 		"GET /api/profile/all/paginated":       "",
@@ -102,7 +104,8 @@ func TestRoutesRegister(t *testing.T) {
 }
 
 // TestTokenRequirement pins which routes are reachable without a token. Only
-// login is; everything else must answer 401. The
+// login, refresh and logout are — the last two authenticate by the refresh
+// token in their body — and everything else must answer 401. The
 // three /api/client routes below were world-accessible in the legacy
 // WebSecurityConfig (no /api/client/** catch-all) and are explicitly guarded
 // here, so this test is what keeps them from regressing.
@@ -114,6 +117,8 @@ func TestTokenRequirement(t *testing.T) {
 		public       bool
 	}{
 		{http.MethodPost, "/api/auth/login", true},
+		{http.MethodPost, "/api/auth/refresh", true},
+		{http.MethodPost, "/api/auth/logout", true},
 		{http.MethodPost, "/api/profile/add", false},
 		{http.MethodGet, "/api/client/all/paginated", false},
 		{http.MethodGet, "/api/client/abc-123", false},

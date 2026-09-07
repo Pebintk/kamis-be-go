@@ -24,8 +24,13 @@ type Base struct {
 
 	JWTPublicKey  string        // base64 X509 — required by every service (verify)
 	JWTPrivateKey string        // base64 PKCS8 — set only by profile (issue)
-	JWTExpiration time.Duration // from JWT_EXPIRATION_MS
-	FrontendURL   string
+	JWTExpiration time.Duration // access-token lifetime, from JWT_EXPIRATION_MS
+
+	// RefreshExpiration is how long a refresh token lives, from
+	// REFRESH_EXPIRATION_MS. Only profile issues or accepts one.
+	RefreshExpiration time.Duration
+
+	FrontendURL string
 }
 
 // Load reads .env (if present) then the process environment, and validates the
@@ -33,18 +38,28 @@ type Base struct {
 func Load() (Base, error) {
 	_ = godotenv.Load() // .env is optional; ignore "not found"
 
-	expMs, err := strconv.Atoi(getenv("JWT_EXPIRATION_MS", "86400000"))
+	// 15 minutes. The access token cannot be revoked — every service verifies
+	// it locally, with no callback to profile — so its lifetime *is* the window
+	// in which a logout has not yet taken effect. It was 24 hours, which made
+	// logging out meaningless for a day.
+	expMs, err := strconv.Atoi(getenv("JWT_EXPIRATION_MS", "900000"))
 	if err != nil {
 		return Base{}, fmt.Errorf("JWT_EXPIRATION_MS must be an integer: %w", err)
 	}
+	// 7 days. Revoking this is what a real logout does.
+	refreshMs, err := strconv.Atoi(getenv("REFRESH_EXPIRATION_MS", "604800000"))
+	if err != nil {
+		return Base{}, fmt.Errorf("REFRESH_EXPIRATION_MS must be an integer: %w", err)
+	}
 
 	cfg := Base{
-		Port:          getenv("PORT", "8080"),
-		DatabaseURL:   os.Getenv("DATABASE_URL"),
-		JWTPublicKey:  os.Getenv("JWT_PUBLIC_KEY"),
-		JWTPrivateKey: os.Getenv("JWT_SECRET_KEY"),
-		JWTExpiration: time.Duration(expMs) * time.Millisecond,
-		FrontendURL:   os.Getenv("FRONTEND_URL"),
+		Port:              getenv("PORT", "8080"),
+		DatabaseURL:       os.Getenv("DATABASE_URL"),
+		JWTPublicKey:      os.Getenv("JWT_PUBLIC_KEY"),
+		JWTPrivateKey:     os.Getenv("JWT_SECRET_KEY"),
+		JWTExpiration:     time.Duration(expMs) * time.Millisecond,
+		RefreshExpiration: time.Duration(refreshMs) * time.Millisecond,
+		FrontendURL:       os.Getenv("FRONTEND_URL"),
 	}
 
 	if cfg.JWTPublicKey == "" {

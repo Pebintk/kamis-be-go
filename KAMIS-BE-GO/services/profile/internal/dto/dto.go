@@ -9,9 +9,22 @@ type LoginRequest struct {
 	Password string `json:"password" binding:"required"`
 }
 
-// LoginResponse is the `data` of a successful login.
+// LoginResponse is the `data` of a successful login, and of a refresh.
+//
+// `token` keeps its legacy name and meaning — the access token the frontend
+// sends as a bearer — so nothing that already reads response.data.token breaks.
+// The rest is new: the access token is now short-lived, and `refreshToken` buys
+// the next one.
 type LoginResponse struct {
-	Token string `json:"token"`
+	Token         string `json:"token"`
+	RefreshToken  string `json:"refreshToken"`
+	ExpiresInSecs int    `json:"expiresInSeconds"`
+}
+
+// RefreshRequest is posted to /api/auth/refresh and /api/auth/logout. Both
+// authenticate by the refresh token itself, so neither needs a bearer.
+type RefreshRequest struct {
+	RefreshToken string `json:"refreshToken" binding:"required"`
 }
 
 // AddUserRequest is posted to /api/profile/add. Role is the lowercase API form.

@@ -38,3 +38,46 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		httpx.Respond(c, http.StatusOK, "Login successful", resp)
 	}
 }
+
+// Refresh handles POST /api/auth/refresh (public). It authenticates by the
+// refresh token in the body, so it needs no bearer — the access token it
+// replaces has usually expired by the time this is called.
+func (h *AuthHandler) Refresh(c *gin.Context) {
+	var req dto.RefreshRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httpx.Respond(c, http.StatusBadRequest, "Invalid request body", nil)
+		return
+	}
+
+	resp, err := h.svc.Refresh(c.Request.Context(), req.RefreshToken)
+	switch {
+	case errors.Is(err, service.ErrInvalidRefreshToken):
+		// One message for unknown, expired and already-spent, so a caller
+		// cannot learn which of their guesses was once real.
+		httpx.Respond(c, http.StatusUnauthorized, "Refresh token tidak valid", nil)
+	case err != nil:
+		httpx.RespondError(c, err)
+	default:
+		httpx.Respond(c, http.StatusOK, "Token refreshed", resp)
+	}
+}
+
+// Logout handles POST /api/auth/logout (public). It revokes the refresh token,
+// which is what stops new access tokens being minted. The access token already
+// issued stays valid until it expires — see MIGRATION.md on why that window is
+// bounded rather than closed.
+//
+// An unrecognised token still answers 200: logging out is not a place to
+// confirm what exists.
+func (h *AuthHandler) Logout(c *gin.Context) {
+	var req dto.RefreshRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httpx.Respond(c, http.StatusBadRequest, "Invalid request body", nil)
+		return
+	}
+	if err := h.svc.Logout(c.Request.Context(), req.RefreshToken); err != nil {
+		httpx.RespondError(c, err)
+		return
+	}
+	httpx.Respond(c, http.StatusOK, "Logout berhasil", nil)
+}

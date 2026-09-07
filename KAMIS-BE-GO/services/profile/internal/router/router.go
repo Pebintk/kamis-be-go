@@ -37,6 +37,10 @@ func New(v *auth.Verifier, allowedOrigins []string, h Handlers) *gin.Engine {
 	// POST /profile/add open, which let anyone mint an account with any role,
 	// Admin included — see MIGRATION.md. It is Admin-only below.
 	api.POST("/auth/login", h.Auth.Login)
+	// Refresh and logout authenticate by the refresh token in their body, not by
+	// a bearer: the access token they concern has usually expired already.
+	api.POST("/auth/refresh", h.Auth.Refresh)
+	api.POST("/auth/logout", h.Auth.Logout)
 
 	// ---- authenticated ----
 	secured := api.Group("")

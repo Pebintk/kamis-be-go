@@ -116,8 +116,11 @@ Every response is wrapped in the Java `BaseResponseDTO` shape
 
 ### Route rules
 
-Exactly one route is public: `POST /api/auth/login`. Everything else needs a
-valid token, plus a role:
+Three routes are public: `POST /api/auth/login`, `POST /api/auth/refresh` and
+`POST /api/auth/logout`. The last two authenticate by the refresh token in their
+own body, so a bearer would be redundant — and by the time refresh is called the
+access token has usually expired. Everything else needs a valid token, plus a
+role:
 
 | Route | Roles |
 |---|---|
@@ -217,6 +220,38 @@ Java modelled roles with JPA JOINED inheritance: an `end_user` table plus
 discriminator. The Go port collapses that to a **single `end_users` table with a
 `user_type` column**. `user_type` keeps the UPPERCASE values because the role
 casing map (above) is built around them.
+
+### Fixed: logging out did nothing
+
+The access token lived 24 hours and every service verifies it locally, with no
+callback to profile. Logging out cleared `localStorage` and nothing else, so a
+copied token kept working for the rest of the day.
+
+Access tokens are now 15 minutes and carry a `jti`; a refresh token, valid 7
+days, buys the next one. Logging out revokes the refresh token, which is what
+stops new access tokens being minted.
+
+**The access token still cannot be revoked**, and that is deliberate. Revoking
+one would mean every service checking a shared store on every request, which
+breaks the locked decision that services validate locally. So the access-token
+lifetime *is* the window in which a logout has not yet fully taken effect: 15
+minutes instead of 24 hours. If that window ever needs closing, the change is a
+shared revocation store and the loss is offline verification.
+
+Refresh tokens rotate, which is what makes theft detectable. Each is single-use,
+so a token presented twice means someone kept a copy; every token that user
+holds is then revoked. The victim logs in again, the thief cannot. Only the
+SHA-256 hash is stored, so a leaked dump yields nothing presentable, and revoked
+rows are kept until their natural expiry because that is exactly the window in
+which a replay could arrive.
+
+The frontend refreshes transparently: one shared in-flight promise, so a burst
+of requests failing together triggers one rotation rather than a race that would
+look like theft to the backend.
+
+`services/profile/internal/service/refresh_test.go` covers rotation, replay
+detection and logout against a real database; it skips unless
+`TEST_DATABASE_URL` is set.
 
 ### Fixed: anyone could create an Admin account
 
@@ -466,6 +501,5 @@ Nothing here is blocked any more — the Java stack is not a constraint. These a
 just not done yet, roughly in order of how much they'd matter if the app were
 ever used for real:
 
-- Refresh tokens, and `jti` + a revocation list so logout is real.
 - Multi-role support (the frontend assumes one role today).
 - JWKS endpoint on profile for key rotation.

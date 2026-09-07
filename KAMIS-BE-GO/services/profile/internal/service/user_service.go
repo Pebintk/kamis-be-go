@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/karina/kamis-be-go/pkg/auth"
 	"github.com/karina/kamis-be-go/pkg/database"
@@ -19,15 +20,22 @@ var (
 	ErrUserNotFound = errors.New("user not found")
 	ErrInvalidRole  = errors.New("invalid role")
 	ErrUserExists   = errors.New("email or username already exists")
+
+	// ErrInvalidRefreshToken covers every way a refresh can fail — unknown,
+	// expired, or already spent — because telling them apart would tell an
+	// attacker which of their guesses was once real.
+	ErrInvalidRefreshToken = errors.New("invalid refresh token")
 )
 
 type UserService struct {
-	repo   *repository.UserRepository
-	issuer *auth.Issuer
+	repo       *repository.UserRepository
+	tokens     *repository.RefreshTokenRepository
+	issuer     *auth.Issuer
+	refreshTTL time.Duration
 }
 
-func NewUserService(repo *repository.UserRepository, issuer *auth.Issuer) *UserService {
-	return &UserService{repo: repo, issuer: issuer}
+func NewUserService(repo *repository.UserRepository, tokens *repository.RefreshTokenRepository, issuer *auth.Issuer, refreshTTL time.Duration) *UserService {
+	return &UserService{repo: repo, tokens: tokens, issuer: issuer, refreshTTL: refreshTTL}
 }
 
 func toResponse(u *model.EndUser) dto.EndUserResponse {
@@ -49,11 +57,81 @@ func (s *UserService) Login(ctx context.Context, req dto.LoginRequest) (dto.Logi
 	if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)) != nil {
 		return dto.LoginResponse{}, auth.ErrInvalidCredentials
 	}
-	token, err := s.issuer.Generate(user.Username, user.Authority())
+	return s.issue(ctx, user.Username, user.Authority())
+}
+
+// issue mints an access token and a fresh refresh token for a username.
+func (s *UserService) issue(ctx context.Context, username, role string) (dto.LoginResponse, error) {
+	access, err := s.issuer.Generate(username, role)
 	if err != nil {
 		return dto.LoginResponse{}, err
 	}
-	return dto.LoginResponse{Token: token}, nil
+
+	refresh, hash, err := auth.NewRefreshToken()
+	if err != nil {
+		return dto.LoginResponse{}, err
+	}
+	err = s.tokens.Create(ctx, &model.RefreshToken{
+		TokenHash: hash,
+		Username:  username,
+		Role:      role,
+		ExpiresAt: time.Now().Add(s.refreshTTL),
+	})
+	if err != nil {
+		return dto.LoginResponse{}, err
+	}
+
+	return dto.LoginResponse{
+		Token:         access,
+		RefreshToken:  refresh,
+		ExpiresInSecs: int(s.issuer.TTL().Seconds()),
+	}, nil
+}
+
+// Refresh exchanges a refresh token for a new access token, and rotates the
+// refresh token itself.
+//
+// Rotation is what makes theft detectable: each token is single-use, so a token
+// presented twice means someone kept a copy. In that case every token the user
+// holds is revoked, which logs out both the thief and the victim — the victim
+// can log in again, the thief cannot.
+func (s *UserService) Refresh(ctx context.Context, presented string) (dto.LoginResponse, error) {
+	stored, err := s.tokens.FindByHash(ctx, auth.HashRefreshToken(presented))
+	if errors.Is(err, database.ErrNotFound) {
+		return dto.LoginResponse{}, ErrInvalidRefreshToken
+	}
+	if err != nil {
+		return dto.LoginResponse{}, err
+	}
+
+	now := time.Now()
+	if stored.RevokedAt != nil {
+		// Replay of a spent token. Treat the whole family as compromised.
+		if revokeErr := s.tokens.RevokeAllFor(ctx, stored.Username, now); revokeErr != nil {
+			return dto.LoginResponse{}, revokeErr
+		}
+		return dto.LoginResponse{}, ErrInvalidRefreshToken
+	}
+	if !stored.Usable(now) {
+		return dto.LoginResponse{}, ErrInvalidRefreshToken
+	}
+
+	if err := s.tokens.Revoke(ctx, stored.TokenHash, now); err != nil {
+		return dto.LoginResponse{}, err
+	}
+	// The role is the one captured at login, so a role change takes effect on
+	// the next login rather than silently mid-session.
+	return s.issue(ctx, stored.Username, stored.Role)
+}
+
+// Logout revokes a refresh token. It is deliberately silent about a token it
+// does not recognise: logging out is not a place to confirm what exists.
+func (s *UserService) Logout(ctx context.Context, presented string) error {
+	err := s.tokens.Revoke(ctx, auth.HashRefreshToken(presented), time.Now())
+	if errors.Is(err, database.ErrNotFound) {
+		return nil
+	}
+	return err
 }
 
 // AddUser creates an account. role is the lowercase API form.

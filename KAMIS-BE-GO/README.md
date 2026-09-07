@@ -70,8 +70,8 @@ curl localhost:8085/health
    `internal/migrations/00001_baseline.sql` with your own baseline.
 3. Update routes + role guards in `internal/router/router.go` to match the
    service's `WebSecurityConfig` rules.
-4. Only `profile` additionally constructs `auth.NewIssuer(...)` and exposes a
-   login route — every other service is verify-only.
+4. Only `profile` additionally constructs `auth.NewIssuer(...)` and owns the
+   login, refresh and logout routes — every other service is verify-only.
 
 ## Notes
 

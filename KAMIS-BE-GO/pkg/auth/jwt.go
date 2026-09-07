@@ -90,12 +90,20 @@ func NewIssuer(base64PrivateKey string, ttl time.Duration) (*Issuer, error) {
 	return &Issuer{privateKey: rsaKey, ttl: ttl}, nil
 }
 
-// Generate mints a token byte-compatible with the Java JwtUtils.generateJwtToken.
+// Generate mints an access token. Beyond the legacy claim shape it carries a
+// jti, so a specific token can be named in a log or an audit trail; the token
+// itself stays self-contained, and no service calls back to profile to validate
+// one.
 func (i *Issuer) Generate(username, role string) (string, error) {
 	now := time.Now()
+	id, err := NewTokenID()
+	if err != nil {
+		return "", err
+	}
 	claims := Claims{
 		Role: role,
 		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        id,
 			Subject:   username,
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(i.ttl)),
@@ -103,6 +111,10 @@ func (i *Issuer) Generate(username, role string) (string, error) {
 	}
 	return jwt.NewWithClaims(jwt.SigningMethodRS256, claims).SignedString(i.privateKey)
 }
+
+// TTL is how long the access tokens this issuer mints stay valid. Callers need
+// it to tell a client when to refresh.
+func (i *Issuer) TTL() time.Duration { return i.ttl }
 
 // ---- request-context plumbing ----
 
