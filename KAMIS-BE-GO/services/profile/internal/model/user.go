@@ -76,3 +76,50 @@ func DiscriminatorFromAPIRole(apiRole string) (discriminator string, ok bool) {
 	}
 	return "", false
 }
+
+// UserRole is one role an account holds. The set always includes the primary
+// role in EndUser.UserType.
+//
+// Java could not express this at all: it modelled roles as JPA subclasses, so an
+// account was one class and held exactly one role.
+type UserRole struct {
+	UserID        string `gorm:"type:uuid;primaryKey"`
+	Discriminator string `gorm:"primaryKey"`
+}
+
+// AuthoritiesFrom maps stored discriminators to the JWT role claims, dropping
+// any it does not recognise.
+func AuthoritiesFrom(discriminators []string) []string {
+	out := make([]string, 0, len(discriminators))
+	for _, d := range discriminators {
+		if authority := AuthorityFromDiscriminator(d); authority != "" {
+			out = append(out, authority)
+		}
+	}
+	return out
+}
+
+// APIRolesFrom maps stored discriminators to the lowercase API form.
+func APIRolesFrom(discriminators []string) []string {
+	out := make([]string, 0, len(discriminators))
+	for _, d := range discriminators {
+		if role := apiRoleFromDiscriminator(d); role != "" {
+			out = append(out, role)
+		}
+	}
+	return out
+}
+
+// OrderRoles puts the primary role first and drops duplicates, so the order a
+// token carries is stable and its first entry is the primary one.
+func OrderRoles(primary string, all []string) []string {
+	ordered := []string{primary}
+	seen := map[string]bool{primary: true}
+	for _, d := range all {
+		if !seen[d] {
+			seen[d] = true
+			ordered = append(ordered, d)
+		}
+	}
+	return ordered
+}

@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/karina/kamis-be-go/pkg/auth"
@@ -38,8 +39,38 @@ func NewUserService(repo *repository.UserRepository, tokens *repository.RefreshT
 	return &UserService{repo: repo, tokens: tokens, issuer: issuer, refreshTTL: refreshTTL}
 }
 
-func toResponse(u *model.EndUser) dto.EndUserResponse {
-	return dto.EndUserResponse{Email: u.Email, Username: u.Username, Role: u.APIRole()}
+// withRoles maps an account together with every role it holds. Passing nil
+// discriminators falls back to the primary role alone, which is what an account
+// created before multi-role holds anyway.
+func withRoles(u *model.EndUser, discriminators []string) dto.EndUserResponse {
+	if len(discriminators) == 0 {
+		discriminators = []string{u.UserType}
+	}
+	return dto.EndUserResponse{
+		Email:    u.Email,
+		Username: u.Username,
+		Role:     u.APIRole(),
+		Roles:    model.APIRolesFrom(model.OrderRoles(u.UserType, discriminators)),
+	}
+}
+
+// resolveRoles turns a primary API role plus any extras into the stored
+// discriminators, primary first. An unrecognised role is rejected rather than
+// dropped, so a typo cannot silently create a weaker account.
+func resolveRoles(primary string, extras []string) ([]string, error) {
+	first, ok := model.DiscriminatorFromAPIRole(primary)
+	if !ok {
+		return nil, ErrInvalidRole
+	}
+	resolved := []string{first}
+	for _, extra := range extras {
+		discriminator, ok := model.DiscriminatorFromAPIRole(extra)
+		if !ok {
+			return nil, ErrInvalidRole
+		}
+		resolved = append(resolved, discriminator)
+	}
+	return model.OrderRoles(first, resolved), nil
 }
 
 // Login authenticates by email (legacy behaviour) and mints a token whose
@@ -57,12 +88,16 @@ func (s *UserService) Login(ctx context.Context, req dto.LoginRequest) (dto.Logi
 	if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)) != nil {
 		return dto.LoginResponse{}, auth.ErrInvalidCredentials
 	}
-	return s.issue(ctx, user.Username, user.Authority())
+	discriminators, err := s.repo.RolesFor(ctx, user.ID, user.UserType)
+	if err != nil {
+		return dto.LoginResponse{}, err
+	}
+	return s.issue(ctx, user.Username, model.AuthoritiesFrom(discriminators))
 }
 
 // issue mints an access token and a fresh refresh token for a username.
-func (s *UserService) issue(ctx context.Context, username, role string) (dto.LoginResponse, error) {
-	access, err := s.issuer.Generate(username, role)
+func (s *UserService) issue(ctx context.Context, username string, roles []string) (dto.LoginResponse, error) {
+	access, err := s.issuer.GenerateMulti(username, roles)
 	if err != nil {
 		return dto.LoginResponse{}, err
 	}
@@ -74,7 +109,7 @@ func (s *UserService) issue(ctx context.Context, username, role string) (dto.Log
 	err = s.tokens.Create(ctx, &model.RefreshToken{
 		TokenHash: hash,
 		Username:  username,
-		Role:      role,
+		Role:      strings.Join(roles, ","),
 		ExpiresAt: time.Now().Add(s.refreshTTL),
 	})
 	if err != nil {
@@ -119,9 +154,9 @@ func (s *UserService) Refresh(ctx context.Context, presented string) (dto.LoginR
 	if err := s.tokens.Revoke(ctx, stored.TokenHash, now); err != nil {
 		return dto.LoginResponse{}, err
 	}
-	// The role is the one captured at login, so a role change takes effect on
+	// The roles are the ones captured at login, so a role change takes effect on
 	// the next login rather than silently mid-session.
-	return s.issue(ctx, stored.Username, stored.Role)
+	return s.issue(ctx, stored.Username, strings.Split(stored.Role, ","))
 }
 
 // Logout revokes a refresh token. It is deliberately silent about a token it
@@ -136,9 +171,9 @@ func (s *UserService) Logout(ctx context.Context, presented string) error {
 
 // AddUser creates an account. role is the lowercase API form.
 func (s *UserService) AddUser(ctx context.Context, req dto.AddUserRequest) (dto.EndUserResponse, error) {
-	discriminator, ok := model.DiscriminatorFromAPIRole(req.Role)
-	if !ok {
-		return dto.EndUserResponse{}, ErrInvalidRole
+	discriminators, err := resolveRoles(req.Role, req.Roles)
+	if err != nil {
+		return dto.EndUserResponse{}, err
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
@@ -148,12 +183,15 @@ func (s *UserService) AddUser(ctx context.Context, req dto.AddUserRequest) (dto.
 		Email:    req.Email,
 		Username: req.Username,
 		Password: string(hash),
-		UserType: discriminator,
+		UserType: discriminators[0],
 	}
 	if err := s.repo.Create(ctx, user); err != nil {
 		return dto.EndUserResponse{}, mapDuplicate(err)
 	}
-	return toResponse(user), nil
+	if err := s.repo.ReplaceRoles(ctx, user.ID, discriminators); err != nil {
+		return dto.EndUserResponse{}, err
+	}
+	return withRoles(user, discriminators), nil
 }
 
 func (s *UserService) GetAllUsers(ctx context.Context) ([]dto.EndUserResponse, error) {
@@ -161,9 +199,24 @@ func (s *UserService) GetAllUsers(ctx context.Context) ([]dto.EndUserResponse, e
 	if err != nil {
 		return nil, err
 	}
+	return s.responses(ctx, users)
+}
+
+// responses maps a list of accounts, resolving every role set in one query
+// rather than one per row.
+func (s *UserService) responses(ctx context.Context, users []model.EndUser) ([]dto.EndUserResponse, error) {
+	ids := make([]string, 0, len(users))
+	for i := range users {
+		ids = append(ids, users[i].ID)
+	}
+	roles, err := s.repo.RolesForAll(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+
 	out := make([]dto.EndUserResponse, 0, len(users))
 	for i := range users {
-		out = append(out, toResponse(&users[i]))
+		out = append(out, withRoles(&users[i], roles[users[i].ID]))
 	}
 	return out, nil
 }
@@ -173,9 +226,9 @@ func (s *UserService) GetAllUsersPaginated(ctx context.Context, page, size int, 
 	if err != nil {
 		return dto.Page{}, err
 	}
-	content := make([]dto.EndUserResponse, 0, len(users))
-	for i := range users {
-		content = append(content, toResponse(&users[i]))
+	content, err := s.responses(ctx, users)
+	if err != nil {
+		return dto.Page{}, err
 	}
 	return dto.NewPage(content, page, size, total), nil
 }
@@ -203,10 +256,33 @@ func (s *UserService) UpdateUser(ctx context.Context, email string, req dto.Upda
 		}
 		user.Password = string(hash)
 	}
+
+	discriminators, err := s.repo.RolesFor(ctx, user.ID, user.UserType)
+	if err != nil {
+		return dto.EndUserResponse{}, err
+	}
+	if req.Roles != nil {
+		if len(*req.Roles) == 0 {
+			// An account with no role could authenticate and do nothing, which
+			// is worse than refusing the edit.
+			return dto.EndUserResponse{}, ErrInvalidRole
+		}
+		roles := *req.Roles
+		if discriminators, err = resolveRoles(roles[0], roles[1:]); err != nil {
+			return dto.EndUserResponse{}, err
+		}
+		user.UserType = discriminators[0]
+	}
+
 	if err := s.repo.Save(ctx, user); err != nil {
 		return dto.EndUserResponse{}, mapDuplicate(err)
 	}
-	return toResponse(user), nil
+	if req.Roles != nil {
+		if err := s.repo.ReplaceRoles(ctx, user.ID, discriminators); err != nil {
+			return dto.EndUserResponse{}, err
+		}
+	}
+	return withRoles(user, discriminators), nil
 }
 
 // EnsureAdmin seeds the default admin account if it does not already exist

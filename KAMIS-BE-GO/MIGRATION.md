@@ -62,9 +62,11 @@ Don't relitigate these — they were weighed deliberately:
   each service's `internal/migrations`, embedded in the binary, applied by
   `database.Migrate` at start.
 - **`DATABASE_URL` is a Go/pgx DSN** (`postgres://...`), not a JDBC URL.
-- **Single-role claim.** Java only read the first authority into the `role`
-  claim and the frontend's route guards assume one role, so the port is
-  single-role. Multi-role is a deferred enhancement.
+- **Multi-role, with a primary.** An account holds a set of roles; the first is
+  the primary one. The token carries both: `role` is the primary and keeps its
+  original meaning, `roles` is the whole set. Java could not express this at all
+  — it modelled roles as JPA subclasses, so an account was one class and held
+  exactly one role.
 
 ## Migration approach
 
@@ -87,6 +89,48 @@ non-blocking dependency, where finance's are blocking.
 
 These are behaviours the **frontend** depends on. Breaking them means changing
 the Vue app too.
+
+### An account can hold several roles
+
+`user_type` on `end_users` is the **primary** role and is unchanged: it is what
+the `role` claim carries, what the API's `role` field returns, and what the Vue
+router's dashboard redirect reads. `user_roles` holds the full set, primary
+included, and is what the route guards check through `Claims.HasAnyRole`.
+
+Everything is additive, so nothing that predates it breaks:
+
+| | Before | After |
+|---|---|---|
+| `role` claim | the only role | the primary role, unchanged |
+| `roles` claim | absent | every role, primary first |
+| `POST /profile/add` | `role` required | `role` still required; `roles` optional extras |
+| `PUT /profile/{id}` | no role field | `roles` replaces the whole set when present |
+| `EndUserResponse` | `role` | `role` plus `roles` |
+
+`Claims.Authorities` falls back to the single `role` claim when `roles` is
+absent, so a token minted before this shipped keeps authorising correctly until
+it expires — which, at a 15-minute access-token lifetime, is a quarter of an
+hour rather than a deploy-wide invalidation.
+
+An update that would leave an account with no roles is refused: an account that
+can authenticate and do nothing is worse than a rejected edit.
+
+On the frontend, `authStore.hasRole(...)` is the access check and the router
+guard uses it, so a secondary role opens the route. `userRole` still exists and
+still means the primary role — the dashboard redirect wants exactly one
+destination, and picking the first matching branch would send a Direksi-primary
+account holding Finance to the Finance dashboard.
+
+**Not finished:** eight view files still gate individual buttons on
+`userRole === 'X'` inline in their templates, usually AND-ed with a data
+condition (`(userRole === 'Finance' || userRole === 'Direksi') &&
+purchase.purchaseStatus === 'Diajukan'`). Those compound expressions are not
+safely rewritable by pattern, and the frontend has no tests, so they were left
+alone: an account will reach a screen its secondary role allows and find some
+buttons hidden. The files are DetailAssetView, ListAsset, DetailDistributionView,
+DetailSellView, DetailPurchaseAssetView, DetailPurchaseResourceView, ListPurchase
+and LeftBar. Nothing is *permitted* incorrectly — the backend guards are the
+boundary and they check the full set.
 
 ### Roles have THREE casings
 
@@ -501,5 +545,4 @@ Nothing here is blocked any more — the Java stack is not a constraint. These a
 just not done yet, roughly in order of how much they'd matter if the app were
 ever used for real:
 
-- Multi-role support (the frontend assumes one role today).
 - JWKS endpoint on profile for key rotation.

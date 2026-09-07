@@ -64,7 +64,7 @@ func TestRefreshRotates(t *testing.T) {
 	svc := newRefreshService(t)
 	ctx := context.Background()
 
-	first, err := svc.issue(ctx, "tester", "Admin")
+	first, err := svc.issue(ctx, "tester", []string{"Admin"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +96,7 @@ func TestRefreshDetectsReplay(t *testing.T) {
 	svc := newRefreshService(t)
 	ctx := context.Background()
 
-	stolen, err := svc.issue(ctx, "victim", "Admin")
+	stolen, err := svc.issue(ctx, "victim", []string{"Admin"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +123,7 @@ func TestLogoutRevokes(t *testing.T) {
 	svc := newRefreshService(t)
 	ctx := context.Background()
 
-	session, err := svc.issue(ctx, "tester", "Finance")
+	session, err := svc.issue(ctx, "tester", []string{"Finance"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -161,7 +161,7 @@ func TestRefreshKeepsTheRoleFromLogin(t *testing.T) {
 	svc := newRefreshService(t)
 	ctx := context.Background()
 
-	issued, err := svc.issue(ctx, "tester", "Operasional")
+	issued, err := svc.issue(ctx, "tester", []string{"Operasional"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -184,5 +184,41 @@ func TestRefreshKeepsTheRoleFromLogin(t *testing.T) {
 	}
 	if claims.Subject != "tester" {
 		t.Errorf("subject after refresh = %q, want tester", claims.Subject)
+	}
+}
+
+// TestRefreshKeepsEveryRole pins that a refreshed token carries the whole role
+// set, not just the primary one — the set is captured at login and replayed.
+func TestRefreshKeepsEveryRole(t *testing.T) {
+	svc := newRefreshService(t)
+	ctx := context.Background()
+
+	issued, err := svc.issue(ctx, "tester", []string{"Finance", "Operasional"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	refreshed, err := svc.Refresh(ctx, issued.RefreshToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, pub := testKeyPair(t)
+	verifier, err := auth.NewVerifier(pub)
+	if err != nil {
+		t.Fatal(err)
+	}
+	claims, err := verifier.Parse(refreshed.Token)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if claims.Role != "Finance" {
+		t.Errorf("primary role after refresh = %q, want Finance", claims.Role)
+	}
+	if len(claims.Roles) != 2 || claims.Roles[1] != "Operasional" {
+		t.Errorf("roles after refresh = %v, want both", claims.Roles)
+	}
+	if !claims.HasAnyRole("Operasional") {
+		t.Error("the secondary role did not survive a refresh")
 	}
 }

@@ -18,6 +18,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -27,10 +28,42 @@ import (
 // uniform and never reveals whether the username or the password was wrong.
 var ErrInvalidCredentials = errors.New("invalid username or password")
 
-// Claims mirrors the legacy token exactly.
+// Claims carries the legacy shape plus the multi-role set.
+//
+// `role` is the primary role and keeps its original meaning, so anything that
+// already reads it — the Vue router's guards, the dashboard redirect — is
+// unaffected. `roles` is every role the account holds, primary included, and is
+// what the route guards check. A token minted before `roles` existed still
+// authorises correctly: see HasAnyRole.
 type Claims struct {
-	Role string `json:"role"`
+	Role  string   `json:"role"`
+	Roles []string `json:"roles,omitempty"`
 	jwt.RegisteredClaims
+}
+
+// Authorities is every role this token carries.
+//
+// It falls back to the single `role` claim when `roles` is absent, which is what
+// keeps a token issued before multi-role existed working until it expires.
+func (c Claims) Authorities() []string {
+	if len(c.Roles) > 0 {
+		return c.Roles
+	}
+	if c.Role == "" {
+		return nil
+	}
+	return []string{c.Role}
+}
+
+// HasAnyRole reports whether this token holds at least one of the allowed
+// roles — the Go form of Spring's hasAnyAuthority(...).
+func (c Claims) HasAnyRole(allowed ...string) bool {
+	for _, held := range c.Authorities() {
+		if slices.Contains(allowed, held) {
+			return true
+		}
+	}
+	return false
 }
 
 // ---- Verifier: held by every service, validates with the RSA public key ----
@@ -95,13 +128,23 @@ func NewIssuer(base64PrivateKey string, ttl time.Duration) (*Issuer, error) {
 // itself stays self-contained, and no service calls back to profile to validate
 // one.
 func (i *Issuer) Generate(username, role string) (string, error) {
+	return i.GenerateMulti(username, []string{role})
+}
+
+// GenerateMulti mints an access token for an account holding several roles. The
+// first is the primary one, carried in the legacy `role` claim.
+func (i *Issuer) GenerateMulti(username string, roles []string) (string, error) {
+	if len(roles) == 0 {
+		return "", errors.New("cannot mint a token with no roles")
+	}
 	now := time.Now()
 	id, err := NewTokenID()
 	if err != nil {
 		return "", err
 	}
 	claims := Claims{
-		Role: role,
+		Role:  roles[0],
+		Roles: roles,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        id,
 			Subject:   username,

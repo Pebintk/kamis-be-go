@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"net/http"
-	"slices"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -30,12 +29,12 @@ func (v *Verifier) GinAuth() gin.HandlerFunc {
 	}
 }
 
-// GinRequireRole enforces that the token's role is one of the allowed roles.
-// It mirrors Spring's hasAnyAuthority(...) and must run after GinAuth.
+// GinRequireRole enforces that the token holds at least one of the allowed
+// roles. It mirrors Spring's hasAnyAuthority(...) and must run after GinAuth.
 func GinRequireRole(roles ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		claims, ok := FromContext(c.Request.Context())
-		if !ok || !slices.Contains(roles, claims.Role) {
+		if !ok || !claims.HasAnyRole(roles...) {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 			return
 		}
