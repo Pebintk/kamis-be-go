@@ -33,14 +33,17 @@ func New(v *auth.Verifier, allowedOrigins []string, h Handlers) *gin.Engine {
 	api := r.Group("/api")
 
 	// ---- permitAll ----
+	// Login is the only public route. The legacy config also left
+	// POST /profile/add open, which let anyone mint an account with any role,
+	// Admin included — see MIGRATION.md. It is Admin-only below.
 	api.POST("/auth/login", h.Auth.Login)
-	api.POST("/profile/add", h.Profile.Add)
 
 	// ---- authenticated ----
 	secured := api.Group("")
 	secured.Use(v.GinAuth())
 	{
 		// /api/profile/**
+		secured.POST("/profile/add", auth.GinRequireRole("Admin"), h.Profile.Add)
 		secured.GET("/profile/all", auth.GinRequireRole("Admin"), h.Profile.All)
 		secured.GET("/profile/all/paginated", auth.GinRequireRole(allRoles...), h.Profile.Paginated)
 		secured.PUT("/profile/:id", auth.GinRequireRole(allRoles...), h.Profile.Update)

@@ -7,27 +7,56 @@ import (
 	"encoding/base64"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/karina/kamis-be-go/pkg/auth"
 )
 
-func testVerifier(t *testing.T) *auth.Verifier {
-	t.Helper()
+// testKeys generates one RSA pair for the whole test binary: the verifier gets
+// the public half, signedToken signs with the private half, so role guards can
+// be exercised with a real token rather than only the no-token case.
+var testKeys = sync.OnceValues(func() (string, string) {
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		t.Fatal(err)
+		panic(err)
 	}
-	der, err := x509.MarshalPKIXPublicKey(&key.PublicKey)
+	pub, err := x509.MarshalPKIXPublicKey(&key.PublicKey)
 	if err != nil {
-		t.Fatal(err)
+		panic(err)
 	}
-	v, err := auth.NewVerifier(base64.StdEncoding.EncodeToString(der))
+	priv, err := x509.MarshalPKCS8PrivateKey(key)
+	if err != nil {
+		panic(err)
+	}
+	return base64.StdEncoding.EncodeToString(pub), base64.StdEncoding.EncodeToString(priv)
+})
+
+func testVerifier(t *testing.T) *auth.Verifier {
+	t.Helper()
+	pub, _ := testKeys()
+	v, err := auth.NewVerifier(pub)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return v
+}
+
+// signedToken mints a token carrying one role.
+func signedToken(t *testing.T, role string) string {
+	t.Helper()
+	_, priv := testKeys()
+	issuer, err := auth.NewIssuer(priv, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, err := issuer.Generate("tester", role)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return token
 }
 
 // newTestEngine builds the real route table. The handlers are nil: these tests
@@ -73,7 +102,7 @@ func TestRoutesRegister(t *testing.T) {
 }
 
 // TestTokenRequirement pins which routes are reachable without a token. Only
-// login and profile registration are; everything else must answer 401. The
+// login is; everything else must answer 401. The
 // three /api/client routes below were world-accessible in the legacy
 // WebSecurityConfig (no /api/client/** catch-all) and are explicitly guarded
 // here, so this test is what keeps them from regressing.
@@ -85,7 +114,7 @@ func TestTokenRequirement(t *testing.T) {
 		public       bool
 	}{
 		{http.MethodPost, "/api/auth/login", true},
-		{http.MethodPost, "/api/profile/add", true},
+		{http.MethodPost, "/api/profile/add", false},
 		{http.MethodGet, "/api/client/all/paginated", false},
 		{http.MethodGet, "/api/client/abc-123", false},
 		{http.MethodPut, "/api/client/update/abc-123", false},
@@ -116,5 +145,37 @@ func TestTokenRequirement(t *testing.T) {
 		if !tc.public && !unauthorized {
 			t.Errorf("%s %s: got %d, want 401 without a token", tc.method, tc.path, res.Code)
 		}
+	}
+}
+
+// TestAccountCreationIsAdminOnly is the regression guard for the registration
+// hole. The legacy config left POST /profile/add public, so anyone could mint an
+// account with any role — including Admin — without credentials. The frontend
+// always treated it as an admin screen: /account/add is roles: ["Admin"].
+func TestAccountCreationIsAdminOnly(t *testing.T) {
+	engine := newTestEngine(t)
+
+	for _, role := range []string{"Direksi", "Finance", "Operasional"} {
+		res := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/api/profile/add", nil)
+		req.Header.Set("Authorization", "Bearer "+signedToken(t, role))
+		engine.ServeHTTP(res, req)
+
+		if res.Code != http.StatusForbidden {
+			t.Errorf("POST /profile/add as %s: got %d, want 403", role, res.Code)
+		}
+	}
+
+	// Admin reaches the (nil) handler and panics, which is the proof the guard
+	// let it through.
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/profile/add", nil)
+	req.Header.Set("Authorization", "Bearer "+signedToken(t, "Admin"))
+	func() {
+		defer func() { _ = recover() }()
+		engine.ServeHTTP(res, req)
+	}()
+	if res.Code == http.StatusForbidden {
+		t.Error("POST /profile/add as Admin: got 403, want allowed")
 	}
 }

@@ -116,12 +116,12 @@ Every response is wrapped in the Java `BaseResponseDTO` shape
 
 ### Route rules
 
-Only two routes are public: `POST /api/auth/login` and `POST /api/profile/add`
-(user registration was public in Java and stays that way — worth revisiting if
-this app is ever exposed). Everything else needs a valid token, plus a role:
+Exactly one route is public: `POST /api/auth/login`. Everything else needs a
+valid token, plus a role:
 
 | Route | Roles |
 |---|---|
+| `POST /api/profile/add` | Admin |
 | `GET /api/profile/all` | Admin |
 | other `/api/profile/**` | all four |
 | `GET /api/client/**` | all four |
@@ -217,6 +217,20 @@ Java modelled roles with JPA JOINED inheritance: an `end_user` table plus
 discriminator. The Go port collapses that to a **single `end_users` table with a
 `user_type` column**. `user_type` keeps the UPPERCASE values because the role
 casing map (above) is built around them.
+
+### Fixed: anyone could create an Admin account
+
+`POST /api/profile/add` was public in the legacy `WebSecurityConfig`, and the
+handler takes the new account's role from the request body. So an unauthenticated
+caller could mint themselves an Admin account and then use every other endpoint
+in the system. It was the shortest path from "can reach the network" to "owns the
+application".
+
+Nothing depended on it being public. The frontend never treated it as
+self-registration: `/account/add` is `roles: ["Admin"]`, an administration
+screen. The first Admin comes from the seeding in `EnsureAdmin`
+(`ADMIN_EMAIL`/`ADMIN_USERNAME`/`ADMIN_PASSWORD`), so closing the route breaks no
+bootstrap. It is Admin-only now, and `TestAccountCreationIsAdminOnly` guards it.
 
 ### Fixed: the entire financial ledger had no auth
 
@@ -453,6 +467,5 @@ just not done yet, roughly in order of how much they'd matter if the app were
 ever used for real:
 
 - Refresh tokens, and `jti` + a revocation list so logout is real.
-- Reconsider whether `POST /api/profile/add` should stay public.
 - Multi-role support (the frontend assumes one role today).
 - JWKS endpoint on profile for key rotation.
