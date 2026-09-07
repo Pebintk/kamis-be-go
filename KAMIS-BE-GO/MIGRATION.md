@@ -430,7 +430,10 @@ services' base URLs, but those are server-to-server callers that never send an
 ## Tooling
 
 `make verify` is what CI runs and what to run before pushing: `fmt-check`,
-`vet`, `lint`, `test`. Lint is golangci-lint, pinned by version in the Makefile
+`tidy-check`, `vet`, `lint`, `test`. `tidy-check` is `go mod tidy -diff`; it
+catches a dependency added with `go get` and never tidied, which leaves a direct
+import parked in go.mod's indirect block. Both `goose` and `oauth2` shipped that
+way before it existed. Lint is golangci-lint, pinned by version in the Makefile
 and installed on demand into `bin/tools`. `.golangci.yml` disables exactly one
 check, ST1005 (lowercase, unpunctuated error strings), because the supplier
 flows return Indonesian sentences that the frontend renders verbatim — they are

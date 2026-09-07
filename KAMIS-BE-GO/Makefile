@@ -3,10 +3,16 @@ SERVICE ?= template
 GOLANGCI_LINT_VERSION ?= v2.13.2
 TOOLS_BIN := $(CURDIR)/bin/tools
 
-.PHONY: tidy run build test vet fmt fmt-check lint tools verify
+.PHONY: tidy tidy-check run build test vet fmt fmt-check lint tools verify
 
 tidy:
 	go mod tidy
+
+# tidy-check fails instead of rewriting, for CI. It catches a dependency added
+# with `go get` and never tidied, which leaves a direct import sitting in the
+# indirect block.
+tidy-check:
+	go mod tidy -diff
 
 run:
 	go run ./services/$(SERVICE)/cmd
@@ -39,4 +45,4 @@ lint: tools
 	$(TOOLS_BIN)/golangci-lint run ./...
 
 # verify is what CI runs, and what to run before pushing.
-verify: fmt-check vet lint test
+verify: fmt-check tidy-check vet lint test

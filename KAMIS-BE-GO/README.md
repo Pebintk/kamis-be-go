@@ -50,7 +50,7 @@ near-mechanical.
 ## Checks
 
 ```bash
-make verify   # fmt-check + vet + lint + test — what CI runs
+make verify   # fmt-check + tidy-check + vet + lint + test — what CI runs
 make fmt      # rewrite formatting in place
 ```
 
