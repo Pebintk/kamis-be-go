@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -22,7 +23,10 @@ type Base struct {
 	// service, translate the JDBC URL to this form.
 	DatabaseURL string
 
-	JWTPublicKey  string        // base64 X509 — required by every service (verify)
+	// JWTPublicKeys are the base64 X509 keys this service accepts tokens from,
+	// in order: the current key first, then any being rotated out. Every service
+	// needs at least one. See auth.Verifier for how a rotation uses more.
+	JWTPublicKeys []string
 	JWTPrivateKey string        // base64 PKCS8 — set only by profile (issue)
 	JWTExpiration time.Duration // access-token lifetime, from JWT_EXPIRATION_MS
 
@@ -55,14 +59,14 @@ func Load() (Base, error) {
 	cfg := Base{
 		Port:              getenv("PORT", "8080"),
 		DatabaseURL:       os.Getenv("DATABASE_URL"),
-		JWTPublicKey:      os.Getenv("JWT_PUBLIC_KEY"),
+		JWTPublicKeys:     publicKeys(),
 		JWTPrivateKey:     os.Getenv("JWT_SECRET_KEY"),
 		JWTExpiration:     time.Duration(expMs) * time.Millisecond,
 		RefreshExpiration: time.Duration(refreshMs) * time.Millisecond,
 		FrontendURL:       os.Getenv("FRONTEND_URL"),
 	}
 
-	if cfg.JWTPublicKey == "" {
+	if len(cfg.JWTPublicKeys) == 0 {
 		return Base{}, fmt.Errorf("JWT_PUBLIC_KEY is required")
 	}
 	if cfg.DatabaseURL == "" {
@@ -80,6 +84,26 @@ func (b Base) AllowedOrigins() []string {
 		origins = append(origins, b.FrontendURL)
 	}
 	return origins
+}
+
+// publicKeys reads the accepted verification keys.
+//
+// JWT_PUBLIC_KEYS is a comma-separated list, current key first; JWT_PUBLIC_KEY
+// is the single-key form every deployment already sets and stays supported, so
+// nothing has to change until a rotation is actually wanted.
+func publicKeys() []string {
+	raw := os.Getenv("JWT_PUBLIC_KEYS")
+	if raw == "" {
+		raw = os.Getenv("JWT_PUBLIC_KEY")
+	}
+
+	var keys []string
+	for _, key := range strings.Split(raw, ",") {
+		if trimmed := strings.TrimSpace(key); trimmed != "" {
+			keys = append(keys, trimmed)
+		}
+	}
+	return keys
 }
 
 func getenv(key, fallback string) string {

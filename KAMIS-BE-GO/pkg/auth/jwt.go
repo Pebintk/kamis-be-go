@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -66,12 +67,53 @@ func (c Claims) HasAnyRole(allowed ...string) bool {
 	return false
 }
 
-// ---- Verifier: held by every service, validates with the RSA public key ----
+// ---- Verifier: held by every service, validates with the RSA public keys ----
 
-type Verifier struct{ publicKey *rsa.PublicKey }
+// Verifier holds every public key a token may have been signed with.
+//
+// More than one, because rotating a keypair otherwise needs every service
+// redeployed at the same instant as profile: the moment profile signs with a new
+// key, any service still holding only the old one rejects every request. With a
+// list, a rotation is three ordered steps that never overlap —
+//
+//  1. add the new public key to every service and redeploy them; they now accept
+//     tokens signed with either key, and profile still signs with the old one
+//  2. redeploy profile signing with the new key; tokens already issued keep
+//     verifying against the old one, which is still in the list
+//  3. once the longest-lived token has expired, drop the old key
+//
+// This is the cheap half of a JWKS endpoint. It does not give profile a way to
+// publish keys, so services still learn them from configuration, but it removes
+// the simultaneity requirement, which is the part that makes rotation risky.
+type Verifier struct{ publicKeys []*rsa.PublicKey }
 
-// NewVerifier decodes the value of JWT_PUBLIC_KEY (base64 X509) unchanged.
+// NewVerifier decodes one base64 X509 public key.
 func NewVerifier(base64PublicKey string) (*Verifier, error) {
+	return NewVerifierFromKeys(base64PublicKey)
+}
+
+// NewVerifierFromKeys decodes one or more base64 X509 public keys. A token is
+// accepted if any of them verifies it.
+func NewVerifierFromKeys(base64PublicKeys ...string) (*Verifier, error) {
+	keys := make([]*rsa.PublicKey, 0, len(base64PublicKeys))
+	for _, encoded := range base64PublicKeys {
+		encoded = strings.TrimSpace(encoded)
+		if encoded == "" {
+			continue
+		}
+		key, err := parsePublicKey(encoded)
+		if err != nil {
+			return nil, err
+		}
+		keys = append(keys, key)
+	}
+	if len(keys) == 0 {
+		return nil, errors.New("no public key configured")
+	}
+	return &Verifier{publicKeys: keys}, nil
+}
+
+func parsePublicKey(base64PublicKey string) (*rsa.PublicKey, error) {
 	der, err := base64.StdEncoding.DecodeString(base64PublicKey)
 	if err != nil {
 		return nil, fmt.Errorf("decode public key: %w", err)
@@ -84,19 +126,34 @@ func NewVerifier(base64PublicKey string) (*Verifier, error) {
 	if !ok {
 		return nil, errors.New("public key is not RSA")
 	}
-	return &Verifier{publicKey: rsaPub}, nil
+	return rsaPub, nil
 }
 
-// Parse verifies signature + expiry and pins the algorithm to RS256.
+// Keys is how many public keys this verifier accepts. More than one means a
+// rotation is in progress.
+func (v *Verifier) Keys() int { return len(v.publicKeys) }
+
+// Parse verifies signature and expiry against each configured key in turn, and
+// pins the algorithm to RS256.
+//
+// The error returned is the *first* key's, not the last: with one key that is
+// the only error there is, and with several the first is the current key, whose
+// failure is the one worth reporting.
 func (v *Verifier) Parse(token string) (*Claims, error) {
-	claims := &Claims{}
-	_, err := jwt.ParseWithClaims(token, claims, func(t *jwt.Token) (any, error) {
-		return v.publicKey, nil
-	}, jwt.WithValidMethods([]string{"RS256"}))
-	if err != nil {
-		return nil, err
+	var firstErr error
+	for _, key := range v.publicKeys {
+		claims := &Claims{}
+		_, err := jwt.ParseWithClaims(token, claims, func(t *jwt.Token) (any, error) {
+			return key, nil
+		}, jwt.WithValidMethods([]string{"RS256"}))
+		if err == nil {
+			return claims, nil
+		}
+		if firstErr == nil {
+			firstErr = err
+		}
 	}
-	return claims, nil
+	return nil, firstErr
 }
 
 // ---- Issuer: held ONLY by profile, signs with the RSA private key ----

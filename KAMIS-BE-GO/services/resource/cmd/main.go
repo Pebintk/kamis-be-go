@@ -33,7 +33,7 @@ func main() {
 		fail("migrate", err)
 	}
 
-	verifier, err := auth.NewVerifier(cfg.JWTPublicKey)
+	verifier, err := auth.NewVerifierFromKeys(cfg.JWTPublicKeys...)
 	if err != nil {
 		fail("auth verifier", err)
 	}

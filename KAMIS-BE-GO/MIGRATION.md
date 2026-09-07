@@ -46,6 +46,15 @@ Don't relitigate these — they were weighed deliberately:
 - **Auth: self-issued JWT, NOT an external IdP.** KAMIS is the only consumer;
   Keycloak/Zitadel/Ory operational cost isn't justified. `golang-jwt/jwt/v5`
   replaces the hand-rolled per-service `JwtUtils`/`JwtTokenFilter`.
+- **Verifiers accept several public keys.** `JWT_PUBLIC_KEYS` is a
+  comma-separated list, current key first; `JWT_PUBLIC_KEY` is the single-key
+  form and still works. Rotating a keypair is otherwise all-or-nothing: the
+  instant profile signs with a new key, any service still holding only the old
+  one rejects every request, so all seven have to be redeployed together. With
+  a list it is three ordered steps that never overlap — add the new key
+  everywhere, then switch profile's signing key, then drop the old key once the
+  longest-lived token has expired. `TestVerifierAcceptsEitherKeyDuringRotation`
+  walks exactly that.
 - **Token claim shape follows the frontend, not the Java service.** RS256 with
   `sub` = username and a single `role` claim, because that is what the Vue auth
   store decodes. Interchangeability with Java-issued tokens is no longer a
@@ -545,4 +554,10 @@ Nothing here is blocked any more — the Java stack is not a constraint. These a
 just not done yet, roughly in order of how much they'd matter if the app were
 ever used for real:
 
-- JWKS endpoint on profile for key rotation.
+- A JWKS endpoint on profile, if key rotation ever becomes routine. Verifiers
+  already accept several keys (see below), which removes the simultaneity
+  requirement; JWKS would additionally let profile *publish* them, so services
+  stop learning keys from configuration. It costs profile becoming a startup
+  dependency of every service — four of them do not know `PROFILE_URL` today —
+  and it weakens the locked "validate locally" decision, so it is only worth it
+  under a scheduled rotation or a compliance requirement.

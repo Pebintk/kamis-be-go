@@ -40,7 +40,7 @@ func main() {
 
 	// This service only verifies tokens. The issuer (auth.NewIssuer) is wired
 	// only in the profile service's main.go.
-	verifier, err := auth.NewVerifier(cfg.JWTPublicKey)
+	verifier, err := auth.NewVerifierFromKeys(cfg.JWTPublicKeys...)
 	if err != nil {
 		fail("auth verifier", err)
 	}

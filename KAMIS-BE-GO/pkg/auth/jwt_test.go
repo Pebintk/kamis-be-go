@@ -183,3 +183,77 @@ func TestGenerateMulti(t *testing.T) {
 		t.Error("minting a token with no roles returned nil error")
 	}
 }
+
+// TestVerifierAcceptsEitherKeyDuringRotation walks the rotation this exists for:
+// services carry both keys, so tokens signed with either verify, and neither the
+// old nor the new signing key needs a simultaneous redeploy.
+func TestVerifierAcceptsEitherKeyDuringRotation(t *testing.T) {
+	oldPriv, oldPub := genKeysB64(t)
+	newPriv, newPub := genKeysB64(t)
+
+	// Step 1: a service carrying both keys. Current key first.
+	verifier, err := NewVerifierFromKeys(newPub, oldPub)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if verifier.Keys() != 2 {
+		t.Fatalf("verifier holds %d keys, want 2", verifier.Keys())
+	}
+
+	// A token issued before the rotation still verifies.
+	oldIssuer, _ := NewIssuer(oldPriv, time.Hour)
+	oldToken, _ := oldIssuer.Generate("tester", "Admin")
+	if _, err := verifier.Parse(oldToken); err != nil {
+		t.Errorf("a token signed with the outgoing key was rejected: %v", err)
+	}
+
+	// Step 2: profile starts signing with the new key.
+	newIssuer, _ := NewIssuer(newPriv, time.Hour)
+	newToken, _ := newIssuer.Generate("tester", "Admin")
+	claims, err := verifier.Parse(newToken)
+	if err != nil {
+		t.Fatalf("a token signed with the incoming key was rejected: %v", err)
+	}
+	if claims.Subject != "tester" {
+		t.Errorf("subject = %q, want tester", claims.Subject)
+	}
+
+	// Step 3: the old key is dropped once its tokens have expired.
+	after, err := NewVerifierFromKeys(newPub)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := after.Parse(oldToken); err == nil {
+		t.Error("a token signed with the dropped key still verifies")
+	}
+	if _, err := after.Parse(newToken); err != nil {
+		t.Errorf("the current key stopped working after the drop: %v", err)
+	}
+}
+
+// TestNewVerifierFromKeysRejectsEmpty keeps a misconfigured service from
+// starting with nothing to verify against, which would fail open on nobody but
+// would fail every request.
+func TestNewVerifierFromKeysRejectsEmpty(t *testing.T) {
+	if _, err := NewVerifierFromKeys(); err == nil {
+		t.Error("no keys returned nil error")
+	}
+	if _, err := NewVerifierFromKeys("", "   "); err == nil {
+		t.Error("only blank keys returned nil error")
+	}
+
+	// A blank entry beside a real one is skipped, so a trailing comma in
+	// JWT_PUBLIC_KEYS is harmless.
+	_, pub := genKeysB64(t)
+	v, err := NewVerifierFromKeys(pub, "")
+	if err != nil {
+		t.Fatalf("a blank entry beside a real key was rejected: %v", err)
+	}
+	if v.Keys() != 1 {
+		t.Errorf("verifier holds %d keys, want 1", v.Keys())
+	}
+
+	if _, err := NewVerifierFromKeys("not-base64!"); err == nil {
+		t.Error("an unparseable key returned nil error")
+	}
+}
