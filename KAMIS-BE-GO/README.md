@@ -3,8 +3,10 @@
 Go rewrite of the KAMIS backend (migrated from `../KAMIS-BE`, Java/Spring Boot).
 Single Go module monorepo: shared libraries in `pkg/`, one deployable per
 directory under `services/`. Web framework: **Gin**. Auth: self-issued **RS256
-JWT** via `golang-jwt/jwt/v5`, token-compatible with the legacy Java services so
-both stacks can run side by side during the migration.
+JWT** via `golang-jwt/jwt/v5` — `profile` signs with the private key, every
+other service verifies locally against the public one. The keypair is this
+repo's own: tokens are not interchangeable with Java-issued ones, and the two
+stacks are not meant to run side by side.
 
 **Porting a service?** Read [MIGRATION.md](MIGRATION.md) first — it records the
 locked decisions, migration order, and the behavioral contract quirks (role
@@ -76,6 +78,10 @@ curl localhost:8085/health
 ## Notes
 
 - `DATABASE_URL` is a Go/pgx DSN (`postgres://...`), **not** a JDBC URL.
+- `JWT_PUBLIC_KEY` holds the one key a service verifies against. To rotate a
+  keypair, set `JWT_PUBLIC_KEYS` instead — a comma-separated list, current key
+  first — so the old and new keys need not be swapped in the same instant
+  across every service. Each `.env.example` spells out the three steps.
 - Schema is owned by **goose**: plain SQL under each service's
   `internal/migrations`, embedded in the binary and applied at start by
   `database.Migrate`. Add the next numbered file to change a schema; never edit
