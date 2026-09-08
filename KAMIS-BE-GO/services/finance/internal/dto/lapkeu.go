@@ -3,7 +3,7 @@
 // parse, so they match the Java dto classes exactly.
 package dto
 
-import "github.com/karina/kamis-be-go/pkg/jsontime"
+import "github.com/pebintk/kamis-be-go/pkg/jsontime"
 
 // Timestamp renders dates in Asia/Jakarta, as the envelope's @JsonFormat does.
 type Timestamp = jsontime.Time

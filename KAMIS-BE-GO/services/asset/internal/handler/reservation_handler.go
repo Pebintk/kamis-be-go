@@ -4,9 +4,9 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/karina/kamis-be-go/pkg/httpx"
-	"github.com/karina/kamis-be-go/services/asset/internal/dto"
-	"github.com/karina/kamis-be-go/services/asset/internal/service"
+	"github.com/pebintk/kamis-be-go/pkg/httpx"
+	"github.com/pebintk/kamis-be-go/services/asset/internal/dto"
+	"github.com/pebintk/kamis-be-go/services/asset/internal/service"
 )
 
 type ReservationHandler struct{ svc *service.ReservationService }

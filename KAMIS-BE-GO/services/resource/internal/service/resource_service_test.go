@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/karina/kamis-be-go/pkg/database"
-	"github.com/karina/kamis-be-go/services/resource/internal/dto"
+	"github.com/pebintk/kamis-be-go/pkg/database"
+	"github.com/pebintk/kamis-be-go/services/resource/internal/dto"
 )
 
 func ptr(v int) *int { return &v }

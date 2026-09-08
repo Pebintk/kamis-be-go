@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/karina/kamis-be-go/pkg/apierr"
-	"github.com/karina/kamis-be-go/pkg/blob"
-	"github.com/karina/kamis-be-go/pkg/database"
-	"github.com/karina/kamis-be-go/services/asset/internal/dto"
+	"github.com/pebintk/kamis-be-go/pkg/apierr"
+	"github.com/pebintk/kamis-be-go/pkg/blob"
+	"github.com/pebintk/kamis-be-go/pkg/database"
+	"github.com/pebintk/kamis-be-go/services/asset/internal/dto"
 )
 
 const sampleUUID = "3f1b2c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d"

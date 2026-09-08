@@ -5,8 +5,8 @@
 package dto
 
 import (
-	"github.com/karina/kamis-be-go/pkg/jsontime"
-	"github.com/karina/kamis-be-go/pkg/page"
+	"github.com/pebintk/kamis-be-go/pkg/jsontime"
+	"github.com/pebintk/kamis-be-go/pkg/page"
 )
 
 // PageOf is the shared Spring-shaped page, re-exported so call sites can take a

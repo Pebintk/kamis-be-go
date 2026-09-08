@@ -4,10 +4,10 @@ package router
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/karina/kamis-be-go/pkg/auth"
-	"github.com/karina/kamis-be-go/pkg/httpx"
-	"github.com/karina/kamis-be-go/pkg/metrics"
-	"github.com/karina/kamis-be-go/services/project/internal/handler"
+	"github.com/pebintk/kamis-be-go/pkg/auth"
+	"github.com/pebintk/kamis-be-go/pkg/httpx"
+	"github.com/pebintk/kamis-be-go/pkg/metrics"
+	"github.com/pebintk/kamis-be-go/services/project/internal/handler"
 )
 
 // allRoles is the /api/project/** catch-all.

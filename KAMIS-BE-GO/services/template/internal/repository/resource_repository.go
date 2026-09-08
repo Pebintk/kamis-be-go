@@ -4,8 +4,8 @@ package repository
 import (
 	"context"
 
-	"github.com/karina/kamis-be-go/pkg/database"
-	"github.com/karina/kamis-be-go/services/template/internal/model"
+	"github.com/pebintk/kamis-be-go/pkg/database"
+	"github.com/pebintk/kamis-be-go/services/template/internal/model"
 	"gorm.io/gorm"
 )
 

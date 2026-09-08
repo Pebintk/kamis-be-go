@@ -1,4 +1,4 @@
-module github.com/karina/kamis-be-go
+module github.com/pebintk/kamis-be-go
 
 go 1.26.0
 

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	pkgconfig "github.com/karina/kamis-be-go/pkg/config"
+	pkgconfig "github.com/pebintk/kamis-be-go/pkg/config"
 )
 
 type Config struct {

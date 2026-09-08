@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"github.com/karina/kamis-be-go/pkg/apierr"
+	"github.com/pebintk/kamis-be-go/pkg/apierr"
 )
 
 // TestRespondErrorStatuses pins the mapping every service's handlers rely on and

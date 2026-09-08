@@ -1,6 +1,6 @@
 package handler
 
-import "github.com/karina/kamis-be-go/pkg/apierr"
+import "github.com/pebintk/kamis-be-go/pkg/apierr"
 
 // badQuery reports an unparseable query parameter as a caller mistake.
 func badQuery(name, value, want string) error {

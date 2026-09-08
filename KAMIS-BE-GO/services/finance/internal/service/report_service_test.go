@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/karina/kamis-be-go/pkg/apierr"
-	"github.com/karina/kamis-be-go/pkg/httpx"
-	"github.com/karina/kamis-be-go/services/finance/internal/dto"
+	"github.com/pebintk/kamis-be-go/pkg/apierr"
+	"github.com/pebintk/kamis-be-go/pkg/httpx"
+	"github.com/pebintk/kamis-be-go/services/finance/internal/dto"
 )
 
 func isInvalid(err error) bool {

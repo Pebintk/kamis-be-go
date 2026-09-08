@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/karina/kamis-be-go/pkg/apierr"
-	"github.com/karina/kamis-be-go/pkg/httpx"
-	"github.com/karina/kamis-be-go/pkg/jsontime"
-	"github.com/karina/kamis-be-go/services/project/internal/dto"
-	"github.com/karina/kamis-be-go/services/project/internal/model"
+	"github.com/pebintk/kamis-be-go/pkg/apierr"
+	"github.com/pebintk/kamis-be-go/pkg/httpx"
+	"github.com/pebintk/kamis-be-go/pkg/jsontime"
+	"github.com/pebintk/kamis-be-go/services/project/internal/dto"
+	"github.com/pebintk/kamis-be-go/services/project/internal/model"
 )
 
 func ptrInt(v int) *int    { return &v }

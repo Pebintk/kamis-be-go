@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/karina/kamis-be-go/services/project/internal/model"
+	"github.com/pebintk/kamis-be-go/services/project/internal/model"
 )
 
 // TestCheckStatusTransition pins the lifecycle: planned, then carried out, then

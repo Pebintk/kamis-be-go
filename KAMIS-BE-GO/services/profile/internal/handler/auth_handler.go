@@ -7,10 +7,10 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/karina/kamis-be-go/pkg/auth"
-	"github.com/karina/kamis-be-go/pkg/httpx"
-	"github.com/karina/kamis-be-go/services/profile/internal/dto"
-	"github.com/karina/kamis-be-go/services/profile/internal/service"
+	"github.com/pebintk/kamis-be-go/pkg/auth"
+	"github.com/pebintk/kamis-be-go/pkg/httpx"
+	"github.com/pebintk/kamis-be-go/services/profile/internal/dto"
+	"github.com/pebintk/kamis-be-go/services/profile/internal/service"
 )
 
 type AuthHandler struct{ svc *service.UserService }

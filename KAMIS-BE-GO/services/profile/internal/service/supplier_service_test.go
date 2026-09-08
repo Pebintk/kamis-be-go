@@ -3,7 +3,7 @@ package service
 import (
 	"testing"
 
-	"github.com/karina/kamis-be-go/services/profile/internal/dto"
+	"github.com/pebintk/kamis-be-go/services/profile/internal/dto"
 )
 
 // TestFormatRupiah pins the Indonesian grouping that

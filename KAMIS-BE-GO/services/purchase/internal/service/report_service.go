@@ -5,11 +5,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/karina/kamis-be-go/pkg/apierr"
-	"github.com/karina/kamis-be-go/pkg/reporting"
-	"github.com/karina/kamis-be-go/services/purchase/internal/dto"
-	"github.com/karina/kamis-be-go/services/purchase/internal/model"
-	"github.com/karina/kamis-be-go/services/purchase/internal/repository"
+	"github.com/pebintk/kamis-be-go/pkg/apierr"
+	"github.com/pebintk/kamis-be-go/pkg/reporting"
+	"github.com/pebintk/kamis-be-go/services/purchase/internal/dto"
+	"github.com/pebintk/kamis-be-go/services/purchase/internal/model"
+	"github.com/pebintk/kamis-be-go/services/purchase/internal/repository"
 )
 
 // Reporting ranges and granularities are the shared pkg/reporting names,

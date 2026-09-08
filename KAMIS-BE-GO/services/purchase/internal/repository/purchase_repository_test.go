@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/karina/kamis-be-go/services/purchase/internal/model"
+	"github.com/pebintk/kamis-be-go/services/purchase/internal/model"
 )
 
 // TestIDPrefix pins the human-readable id format the frontend displays and

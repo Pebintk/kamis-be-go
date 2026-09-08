@@ -5,11 +5,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/karina/kamis-be-go/pkg/apierr"
-	"github.com/karina/kamis-be-go/pkg/reporting"
-	"github.com/karina/kamis-be-go/services/project/internal/dto"
-	"github.com/karina/kamis-be-go/services/project/internal/model"
-	"github.com/karina/kamis-be-go/services/project/internal/repository"
+	"github.com/pebintk/kamis-be-go/pkg/apierr"
+	"github.com/pebintk/kamis-be-go/pkg/reporting"
+	"github.com/pebintk/kamis-be-go/services/project/internal/dto"
+	"github.com/pebintk/kamis-be-go/services/project/internal/model"
+	"github.com/pebintk/kamis-be-go/services/project/internal/repository"
 )
 
 // statusScopeFor turns the chart's filter name into a status predicate.

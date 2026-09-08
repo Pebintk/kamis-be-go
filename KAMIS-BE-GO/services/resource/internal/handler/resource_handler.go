@@ -14,9 +14,9 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/karina/kamis-be-go/pkg/httpx"
-	"github.com/karina/kamis-be-go/services/resource/internal/dto"
-	"github.com/karina/kamis-be-go/services/resource/internal/service"
+	"github.com/pebintk/kamis-be-go/pkg/httpx"
+	"github.com/pebintk/kamis-be-go/services/resource/internal/dto"
+	"github.com/pebintk/kamis-be-go/services/resource/internal/service"
 )
 
 type ResourceHandler struct{ svc *service.ResourceService }

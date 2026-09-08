@@ -3,7 +3,7 @@ package repository
 import (
 	"testing"
 
-	"github.com/karina/kamis-be-go/services/project/internal/model"
+	"github.com/pebintk/kamis-be-go/services/project/internal/model"
 )
 
 // TestIDPrefix pins the letter a project id opens with, which is how the

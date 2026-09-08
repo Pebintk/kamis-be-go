@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"github.com/karina/kamis-be-go/pkg/auth"
+	"github.com/pebintk/kamis-be-go/pkg/auth"
 )
 
 func testVerifier(t *testing.T) *auth.Verifier {

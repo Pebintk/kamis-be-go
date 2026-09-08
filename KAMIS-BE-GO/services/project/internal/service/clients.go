@@ -5,9 +5,9 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/karina/kamis-be-go/pkg/httpx"
-	"github.com/karina/kamis-be-go/pkg/jsontime"
-	"github.com/karina/kamis-be-go/services/project/internal/dto"
+	"github.com/pebintk/kamis-be-go/pkg/httpx"
+	"github.com/pebintk/kamis-be-go/pkg/jsontime"
+	"github.com/pebintk/kamis-be-go/services/project/internal/dto"
 )
 
 // Deps are the services a project reaches out to. Bundled so the constructor

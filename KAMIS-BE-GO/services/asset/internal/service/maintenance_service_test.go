@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/karina/kamis-be-go/pkg/apierr"
-	"github.com/karina/kamis-be-go/pkg/database"
-	"github.com/karina/kamis-be-go/services/asset/internal/model"
+	"github.com/pebintk/kamis-be-go/pkg/apierr"
+	"github.com/pebintk/kamis-be-go/pkg/database"
+	"github.com/pebintk/kamis-be-go/services/asset/internal/model"
 )
 
 func day(d int) time.Time { return time.Date(2026, 6, d, 9, 0, 0, 0, time.UTC) }

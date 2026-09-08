@@ -4,10 +4,10 @@ package router
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/karina/kamis-be-go/pkg/auth"
-	"github.com/karina/kamis-be-go/pkg/httpx"
-	"github.com/karina/kamis-be-go/pkg/metrics"
-	"github.com/karina/kamis-be-go/services/purchase/internal/handler"
+	"github.com/pebintk/kamis-be-go/pkg/auth"
+	"github.com/pebintk/kamis-be-go/pkg/httpx"
+	"github.com/pebintk/kamis-be-go/pkg/metrics"
+	"github.com/pebintk/kamis-be-go/services/purchase/internal/handler"
 )
 
 // allRoles is the full set — the legacy config's

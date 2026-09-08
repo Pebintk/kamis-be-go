@@ -5,9 +5,9 @@ package service
 import (
 	"context"
 
-	"github.com/karina/kamis-be-go/services/resource/internal/dto"
-	"github.com/karina/kamis-be-go/services/resource/internal/model"
-	"github.com/karina/kamis-be-go/services/resource/internal/repository"
+	"github.com/pebintk/kamis-be-go/services/resource/internal/dto"
+	"github.com/pebintk/kamis-be-go/services/resource/internal/model"
+	"github.com/pebintk/kamis-be-go/services/resource/internal/repository"
 )
 
 type ResourceService struct {

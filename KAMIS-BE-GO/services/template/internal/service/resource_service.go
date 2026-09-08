@@ -5,9 +5,9 @@ import (
 	"context"
 	"errors"
 
-	"github.com/karina/kamis-be-go/pkg/database"
-	"github.com/karina/kamis-be-go/services/template/internal/model"
-	"github.com/karina/kamis-be-go/services/template/internal/repository"
+	"github.com/pebintk/kamis-be-go/pkg/database"
+	"github.com/pebintk/kamis-be-go/services/template/internal/model"
+	"github.com/pebintk/kamis-be-go/services/template/internal/repository"
 )
 
 // ErrNotFound is a transport-agnostic error the handler maps to HTTP 404.

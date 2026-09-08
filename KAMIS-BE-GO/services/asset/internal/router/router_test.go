@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/karina/kamis-be-go/pkg/auth"
+	"github.com/pebintk/kamis-be-go/pkg/auth"
 )
 
 // testKeys generates one RSA pair for the whole test binary: the verifier gets

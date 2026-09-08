@@ -3,7 +3,7 @@ package dto
 import (
 	"time"
 
-	"github.com/karina/kamis-be-go/pkg/jsontime"
+	"github.com/pebintk/kamis-be-go/pkg/jsontime"
 )
 
 // Timestamp is the shared pkg/jsontime type, re-exported under the name the

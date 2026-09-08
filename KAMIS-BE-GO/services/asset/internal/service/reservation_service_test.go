@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/karina/kamis-be-go/pkg/apierr"
-	"github.com/karina/kamis-be-go/pkg/database"
-	"github.com/karina/kamis-be-go/pkg/jsontime"
-	"github.com/karina/kamis-be-go/services/asset/internal/dto"
-	"github.com/karina/kamis-be-go/services/asset/internal/model"
+	"github.com/pebintk/kamis-be-go/pkg/apierr"
+	"github.com/pebintk/kamis-be-go/pkg/database"
+	"github.com/pebintk/kamis-be-go/pkg/jsontime"
+	"github.com/pebintk/kamis-be-go/services/asset/internal/dto"
+	"github.com/pebintk/kamis-be-go/services/asset/internal/model"
 )
 
 // TestValidStatus is the guard Java never had: the status arrived as a query

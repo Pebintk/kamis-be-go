@@ -7,10 +7,10 @@ import (
 	"io"
 	"log/slog"
 
-	"github.com/karina/kamis-be-go/pkg/apierr"
-	"github.com/karina/kamis-be-go/pkg/blob"
-	"github.com/karina/kamis-be-go/services/purchase/internal/dto"
-	"github.com/karina/kamis-be-go/services/purchase/internal/model"
+	"github.com/pebintk/kamis-be-go/pkg/apierr"
+	"github.com/pebintk/kamis-be-go/pkg/blob"
+	"github.com/pebintk/kamis-be-go/services/purchase/internal/dto"
+	"github.com/pebintk/kamis-be-go/services/purchase/internal/model"
 )
 
 // UploadedPhoto is one incoming image. ContentType has already passed

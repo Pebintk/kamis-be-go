@@ -9,11 +9,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/karina/kamis-be-go/pkg/apierr"
-	"github.com/karina/kamis-be-go/pkg/database"
-	"github.com/karina/kamis-be-go/pkg/httpx"
-	"github.com/karina/kamis-be-go/services/purchase/internal/dto"
-	"github.com/karina/kamis-be-go/services/purchase/internal/model"
+	"github.com/pebintk/kamis-be-go/pkg/apierr"
+	"github.com/pebintk/kamis-be-go/pkg/database"
+	"github.com/pebintk/kamis-be-go/pkg/httpx"
+	"github.com/pebintk/kamis-be-go/services/purchase/internal/dto"
+	"github.com/pebintk/kamis-be-go/services/purchase/internal/model"
 )
 
 const sampleUUID = "3f1b2c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d"

@@ -6,11 +6,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/karina/kamis-be-go/pkg/apierr"
-	"github.com/karina/kamis-be-go/pkg/jsontime"
-	"github.com/karina/kamis-be-go/services/asset/internal/dto"
-	"github.com/karina/kamis-be-go/services/asset/internal/model"
-	"github.com/karina/kamis-be-go/services/asset/internal/repository"
+	"github.com/pebintk/kamis-be-go/pkg/apierr"
+	"github.com/pebintk/kamis-be-go/pkg/jsontime"
+	"github.com/pebintk/kamis-be-go/services/asset/internal/dto"
+	"github.com/pebintk/kamis-be-go/services/asset/internal/model"
+	"github.com/pebintk/kamis-be-go/services/asset/internal/repository"
 )
 
 type ReservationService struct {

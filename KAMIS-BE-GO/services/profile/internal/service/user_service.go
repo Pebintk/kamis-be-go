@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/karina/kamis-be-go/pkg/auth"
-	"github.com/karina/kamis-be-go/pkg/database"
-	"github.com/karina/kamis-be-go/services/profile/internal/dto"
-	"github.com/karina/kamis-be-go/services/profile/internal/model"
-	"github.com/karina/kamis-be-go/services/profile/internal/repository"
+	"github.com/pebintk/kamis-be-go/pkg/auth"
+	"github.com/pebintk/kamis-be-go/pkg/database"
+	"github.com/pebintk/kamis-be-go/services/profile/internal/dto"
+	"github.com/pebintk/kamis-be-go/services/profile/internal/model"
+	"github.com/pebintk/kamis-be-go/services/profile/internal/repository"
 	"golang.org/x/crypto/bcrypt"
 )
 

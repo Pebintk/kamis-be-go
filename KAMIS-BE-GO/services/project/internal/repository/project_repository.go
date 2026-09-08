@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/karina/kamis-be-go/pkg/database"
-	"github.com/karina/kamis-be-go/services/project/internal/model"
+	"github.com/pebintk/kamis-be-go/pkg/database"
+	"github.com/pebintk/kamis-be-go/services/project/internal/model"
 	"gorm.io/gorm"
 )
 

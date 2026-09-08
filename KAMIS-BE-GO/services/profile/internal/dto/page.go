@@ -1,6 +1,6 @@
 package dto
 
-import "github.com/karina/kamis-be-go/pkg/page"
+import "github.com/pebintk/kamis-be-go/pkg/page"
 
 // PageOf and NewPage are the shared pkg/page types, re-exported here so the
 // profile call sites read as `dto.PageOf` / `dto.NewPage` — several of them take

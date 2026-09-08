@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/karina/kamis-be-go/pkg/apierr"
+	"github.com/pebintk/kamis-be-go/pkg/apierr"
 )
 
 // serverErrorMessage is what a 500 tells the client. The underlying error is

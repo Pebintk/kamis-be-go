@@ -6,15 +6,15 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/karina/kamis-be-go/pkg/auth"
-	"github.com/karina/kamis-be-go/pkg/config"
-	"github.com/karina/kamis-be-go/pkg/database"
-	"github.com/karina/kamis-be-go/pkg/httpx"
-	"github.com/karina/kamis-be-go/services/resource/internal/handler"
-	"github.com/karina/kamis-be-go/services/resource/internal/migrations"
-	"github.com/karina/kamis-be-go/services/resource/internal/repository"
-	"github.com/karina/kamis-be-go/services/resource/internal/router"
-	"github.com/karina/kamis-be-go/services/resource/internal/service"
+	"github.com/pebintk/kamis-be-go/pkg/auth"
+	"github.com/pebintk/kamis-be-go/pkg/config"
+	"github.com/pebintk/kamis-be-go/pkg/database"
+	"github.com/pebintk/kamis-be-go/pkg/httpx"
+	"github.com/pebintk/kamis-be-go/services/resource/internal/handler"
+	"github.com/pebintk/kamis-be-go/services/resource/internal/migrations"
+	"github.com/pebintk/kamis-be-go/services/resource/internal/repository"
+	"github.com/pebintk/kamis-be-go/services/resource/internal/router"
+	"github.com/pebintk/kamis-be-go/services/resource/internal/service"
 )
 
 func main() {

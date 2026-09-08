@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/karina/kamis-be-go/pkg/httpx"
-	"github.com/karina/kamis-be-go/services/purchase/internal/dto"
-	"github.com/karina/kamis-be-go/services/purchase/internal/repository"
-	"github.com/karina/kamis-be-go/services/purchase/internal/service"
+	"github.com/pebintk/kamis-be-go/pkg/httpx"
+	"github.com/pebintk/kamis-be-go/services/purchase/internal/dto"
+	"github.com/pebintk/kamis-be-go/services/purchase/internal/repository"
+	"github.com/pebintk/kamis-be-go/services/purchase/internal/service"
 )
 
 // filterDateLayout is the format the legacy @DateTimeFormat declared for the

@@ -6,11 +6,11 @@ import (
 	"context"
 	"time"
 
-	"github.com/karina/kamis-be-go/pkg/auth"
-	"github.com/karina/kamis-be-go/pkg/jsontime"
-	"github.com/karina/kamis-be-go/services/project/internal/dto"
-	"github.com/karina/kamis-be-go/services/project/internal/model"
-	"github.com/karina/kamis-be-go/services/project/internal/repository"
+	"github.com/pebintk/kamis-be-go/pkg/auth"
+	"github.com/pebintk/kamis-be-go/pkg/jsontime"
+	"github.com/pebintk/kamis-be-go/services/project/internal/dto"
+	"github.com/pebintk/kamis-be-go/services/project/internal/model"
+	"github.com/pebintk/kamis-be-go/services/project/internal/repository"
 )
 
 type ProjectService struct {

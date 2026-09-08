@@ -5,8 +5,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/karina/kamis-be-go/pkg/apierr"
-	"github.com/karina/kamis-be-go/services/purchase/internal/model"
+	"github.com/pebintk/kamis-be-go/pkg/apierr"
+	"github.com/pebintk/kamis-be-go/services/purchase/internal/model"
 )
 
 func TestStatusScopeFor(t *testing.T) {

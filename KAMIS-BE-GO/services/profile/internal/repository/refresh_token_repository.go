@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/karina/kamis-be-go/pkg/database"
-	"github.com/karina/kamis-be-go/services/profile/internal/model"
+	"github.com/pebintk/kamis-be-go/pkg/database"
+	"github.com/pebintk/kamis-be-go/services/profile/internal/model"
 	"gorm.io/gorm"
 )
 

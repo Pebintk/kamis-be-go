@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/karina/kamis-be-go/pkg/blob"
-	"github.com/karina/kamis-be-go/services/purchase/internal/model"
+	"github.com/pebintk/kamis-be-go/pkg/blob"
+	"github.com/pebintk/kamis-be-go/services/purchase/internal/model"
 )
 
 // TestAdvanceMachine pins where a purchase can go and who may take it there.

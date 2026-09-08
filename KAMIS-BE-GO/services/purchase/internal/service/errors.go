@@ -3,8 +3,8 @@ package service
 import (
 	"errors"
 
-	"github.com/karina/kamis-be-go/pkg/apierr"
-	"github.com/karina/kamis-be-go/pkg/database"
+	"github.com/pebintk/kamis-be-go/pkg/apierr"
+	"github.com/pebintk/kamis-be-go/pkg/database"
 )
 
 // notFound turns a repository miss into the service's 404, and passes any other

@@ -9,11 +9,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/karina/kamis-be-go/pkg/database"
-	"github.com/karina/kamis-be-go/pkg/httpx"
-	"github.com/karina/kamis-be-go/services/profile/internal/dto"
-	"github.com/karina/kamis-be-go/services/profile/internal/model"
-	"github.com/karina/kamis-be-go/services/profile/internal/repository"
+	"github.com/pebintk/kamis-be-go/pkg/database"
+	"github.com/pebintk/kamis-be-go/pkg/httpx"
+	"github.com/pebintk/kamis-be-go/services/profile/internal/dto"
+	"github.com/pebintk/kamis-be-go/services/profile/internal/model"
+	"github.com/pebintk/kamis-be-go/services/profile/internal/repository"
 )
 
 // ErrSupplierNotFound is returned for an unknown supplier id.

@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/karina/kamis-be-go/services/project/internal/model"
+	"github.com/pebintk/kamis-be-go/services/project/internal/model"
 )
 
 // TestStatusScopeFor pins how the chart's three filters read, including the

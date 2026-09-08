@@ -5,10 +5,10 @@ package router
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/karina/kamis-be-go/pkg/auth"
-	"github.com/karina/kamis-be-go/pkg/httpx"
-	"github.com/karina/kamis-be-go/pkg/metrics"
-	"github.com/karina/kamis-be-go/services/template/internal/handler"
+	"github.com/pebintk/kamis-be-go/pkg/auth"
+	"github.com/pebintk/kamis-be-go/pkg/httpx"
+	"github.com/pebintk/kamis-be-go/pkg/metrics"
+	"github.com/pebintk/kamis-be-go/services/template/internal/handler"
 )
 
 func New(v *auth.Verifier, resources *handler.ResourceHandler) *gin.Engine {

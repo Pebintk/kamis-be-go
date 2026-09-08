@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/karina/kamis-be-go/pkg/metrics"
+	"github.com/pebintk/kamis-be-go/pkg/metrics"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 )
 

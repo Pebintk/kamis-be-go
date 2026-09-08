@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/karina/kamis-be-go/pkg/httpx"
+	"github.com/pebintk/kamis-be-go/pkg/httpx"
 )
 
 // GinAuth validates the Bearer token and stores the claims in the request
