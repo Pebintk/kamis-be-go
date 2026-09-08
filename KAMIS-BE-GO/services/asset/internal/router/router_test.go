@@ -143,7 +143,11 @@ func TestHealthIsPublic(t *testing.T) {
 // way /api/maintenance/** did in the legacy WebSecurityConfig.
 func TestEverythingIsUnderAsset(t *testing.T) {
 	for _, route := range newTestEngine(t).Routes() {
-		if route.Path == "/health" {
+		// /health and /metrics are the deliberate public routes: liveness and the
+		// Prometheus scrape endpoint. Both sit outside the auth prefix on purpose
+		// (Prometheus scrapes /metrics unauthenticated from inside the cluster),
+		// so they are exempt from the "everything under /api/asset/" rule.
+		if route.Path == "/health" || route.Path == "/metrics" {
 			continue
 		}
 		if !strings.HasPrefix(route.Path, "/api/asset/") {

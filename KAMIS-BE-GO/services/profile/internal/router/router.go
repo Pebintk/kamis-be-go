@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/karina/kamis-be-go/pkg/auth"
 	"github.com/karina/kamis-be-go/pkg/httpx"
+	"github.com/karina/kamis-be-go/pkg/metrics"
 	"github.com/karina/kamis-be-go/services/profile/internal/handler"
 )
 
@@ -26,7 +27,7 @@ func New(v *auth.Verifier, allowedOrigins []string, h Handlers) *gin.Engine {
 	// ForwardToken runs on every route, public ones included: the legacy
 	// services read the Authorization header straight off the request and
 	// forward it downstream regardless of whether the route required it.
-	r.Use(httpx.RequestLogger(), gin.Recovery(), httpx.CORS(allowedOrigins), auth.ForwardToken())
+	r.Use(httpx.RequestLogger(), gin.Recovery(), metrics.Middleware(), httpx.CORS(allowedOrigins), auth.ForwardToken())
 
 	r.GET("/health", handler.Health)
 
@@ -77,6 +78,8 @@ func New(v *auth.Verifier, allowedOrigins []string, h Handlers) *gin.Engine {
 		secured.GET("/supplier/name/:supplierId", supplier, h.Supplier.Name)
 		secured.GET("/supplier/detail/:supplierId", supplier, h.Supplier.Detail)
 	}
+
+	metrics.Install(r)
 
 	return r
 }

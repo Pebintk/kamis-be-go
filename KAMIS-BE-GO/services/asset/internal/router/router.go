@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/karina/kamis-be-go/pkg/auth"
 	"github.com/karina/kamis-be-go/pkg/httpx"
+	"github.com/karina/kamis-be-go/pkg/metrics"
 	"github.com/karina/kamis-be-go/services/asset/internal/handler"
 )
 
@@ -21,7 +22,7 @@ var writeRoles = []string{"Operasional", "Admin"}
 func New(v *auth.Verifier, allowedOrigins []string, assets *handler.AssetHandler, maintenance *handler.MaintenanceHandler,
 	reservations *handler.ReservationHandler) *gin.Engine {
 	r := gin.New()
-	r.Use(httpx.RequestLogger(), gin.Recovery(), httpx.CORS(allowedOrigins), auth.ForwardToken())
+	r.Use(httpx.RequestLogger(), gin.Recovery(), metrics.Middleware(), httpx.CORS(allowedOrigins), auth.ForwardToken())
 
 	r.GET("/health", handler.Health)
 
@@ -69,6 +70,8 @@ func New(v *auth.Verifier, allowedOrigins []string, assets *handler.AssetHandler
 		// same list as GET /api/asset/{platNomor}/maintenance above, through the
 		// same service call. The surviving one reads as what it is.
 	}
+
+	metrics.Install(r)
 
 	return r
 }

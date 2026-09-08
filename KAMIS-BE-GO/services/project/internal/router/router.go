@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/karina/kamis-be-go/pkg/auth"
 	"github.com/karina/kamis-be-go/pkg/httpx"
+	"github.com/karina/kamis-be-go/pkg/metrics"
 	"github.com/karina/kamis-be-go/services/project/internal/handler"
 )
 
@@ -14,7 +15,7 @@ var allRoles = []string{"Admin", "Direksi", "Finance", "Operasional"}
 
 func New(v *auth.Verifier, allowedOrigins []string, projects *handler.ProjectHandler) *gin.Engine {
 	r := gin.New()
-	r.Use(httpx.RequestLogger(), gin.Recovery(), httpx.CORS(allowedOrigins), auth.ForwardToken())
+	r.Use(httpx.RequestLogger(), gin.Recovery(), metrics.Middleware(), httpx.CORS(allowedOrigins), auth.ForwardToken())
 
 	r.GET("/health", handler.Health)
 
@@ -46,6 +47,8 @@ func New(v *auth.Verifier, allowedOrigins []string, projects *handler.ProjectHan
 
 		secured.GET("/project/:id", read, projects.Detail)
 	}
+
+	metrics.Install(r)
 
 	return r
 }

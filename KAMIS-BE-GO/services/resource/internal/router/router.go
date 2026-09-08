@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/karina/kamis-be-go/pkg/auth"
 	"github.com/karina/kamis-be-go/pkg/httpx"
+	"github.com/karina/kamis-be-go/pkg/metrics"
 	"github.com/karina/kamis-be-go/services/resource/internal/handler"
 )
 
@@ -22,7 +23,7 @@ func New(v *auth.Verifier, allowedOrigins []string, resources *handler.ResourceH
 	// ForwardToken is installed even though this service makes no outbound
 	// calls today, so that adding one does not require remembering to add the
 	// middleware. It is the same global placement every service uses.
-	r.Use(httpx.RequestLogger(), gin.Recovery(), httpx.CORS(allowedOrigins), auth.ForwardToken())
+	r.Use(httpx.RequestLogger(), gin.Recovery(), metrics.Middleware(), httpx.CORS(allowedOrigins), auth.ForwardToken())
 
 	r.GET("/health", handler.Health)
 
@@ -50,6 +51,8 @@ func New(v *auth.Verifier, allowedOrigins []string, resources *handler.ResourceH
 		secured.PUT("/resource/:idResource/add-stock", write, resources.AddStock)
 		secured.PUT("/resource/:idResource/deduct-stock", write, resources.DeductStock)
 	}
+
+	metrics.Install(r)
 
 	return r
 }

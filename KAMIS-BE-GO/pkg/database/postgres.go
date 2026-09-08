@@ -26,5 +26,11 @@ func Connect(dsn string) (*gorm.DB, error) {
 	sqlDB.SetMaxOpenConns(25)
 	sqlDB.SetMaxIdleConns(5)
 	sqlDB.SetConnMaxLifetime(time.Hour)
+
+	// Instrument every query and the pool from this one shared path, so all
+	// services get database metrics without touching their repositories.
+	if err := instrument(db); err != nil {
+		return nil, fmt.Errorf("instrument database: %w", err)
+	}
 	return db, nil
 }
