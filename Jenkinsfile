@@ -73,19 +73,19 @@ pipeline {
                             """
                         }
 
-                        sh '''#!/usr/bin/env bash
+                        sh """#!/usr/bin/env bash
                             set -euo pipefail
                             cd gitops
                             if git diff --quiet; then
-                                echo "Manifests already at ${TAG}, nothing to commit"
+                                echo "Manifests already at ${env.TAG}, nothing to commit"
                                 exit 0
                             fi
 
                             git config user.email "jenkins@lab.local"
                             git config user.name  "jenkins-ci"
-                            git commit -am "deploy kamis ${SERVICE} ${TAG} (build ${BUILD_NUMBER})"
+                            git commit -am "deploy kamis ${params.SERVICE} ${env.TAG} (build ${env.BUILD_NUMBER})"
                             git push origin HEAD:main
-                        '''
+                        """
                     }
                 }
             }
