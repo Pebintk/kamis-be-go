@@ -21,6 +21,7 @@ import (
 )
 
 func main() {
+	// for setting up loggin in asset services
 	httpx.SetupLogging("asset")
 
 	cfg, err := config.Load()
